@@ -1,43 +1,33 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# Environment variables (all of them, not just .local)
+.env
+.env.*
+!.env.example
 
-# dependencies
-node_modules/
+# VS Code (since you're using it)
+.vscode/
+!.vscode/extensions.json
 
-# Expo
+# Claude / AI tools
+.claude/
 .expo/
-dist/
-web-build/
-expo-env.d.ts
 
-# Native
-.kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
+# Logs
+logs/
+*.log
 
-# Metro
-.metro-health-check*
+# Build outputs
+build/
+out/
 
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
+# Testing
+coverage/
+.jest-cache/
 
-# macOS
-.DS_Store
-*.pem
+# OS
+Thumbs.db
 
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-app-example
-
-# generated native folders
-/ios
-/android
+# Yarn (if you ever switch)
+.yarn/cache
+.yarn/unplugged
+.pnp.*
+node_modules
