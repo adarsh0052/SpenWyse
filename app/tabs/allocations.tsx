@@ -494,7 +494,7 @@ const styles = StyleSheet.create({
   scrollContent: { paddingHorizontal: 25, paddingTop: 10 },
 
   // TEXTURED POOL HERO
-  poolWrapper: { marginBottom: 32, borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: '#BBF7D0' },
+  poolWrapper: { marginBottom: 32, borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: '#14532D' },
   lightPoolHero: { padding: 24, position: 'relative' },
   poolContentZIndex: { zIndex: 10 },
   
