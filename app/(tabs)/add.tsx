@@ -1,9 +1,19 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Pressable, Dimensions, KeyboardAvoidingView, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  Pressable, 
+  Dimensions, 
+  KeyboardAvoidingView, 
+  Platform, 
+  StatusBar 
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useNavigation, Tabs } from 'expo-router';
 import Animated, { FadeInUp, FadeIn } from 'react-native-reanimated';
+import { supabase } from '../../services/supabase';
 
 const { width } = Dimensions.get('window');
 const INITIAL_FLEX_POOL = 8200;
@@ -13,44 +23,123 @@ const CATEGORIES = [
   { id: '2', name: 'Shopping', icon: 'bag-handle', color: '#F59E0B' },
   { id: '3', name: 'Transport', icon: 'car', color: '#6366F1' },
   { id: '4', name: 'Bills', icon: 'receipt', color: '#E11D48' },
-  { id: '5', name: 'Travel', icon: 'airplane', color: '#8B5CF6' },
-  { id: '6', name: 'Health', icon: 'fitness', color: '#0EA5E9' },
+  { id: '5', name: 'Health', icon: 'fitness', color: '#0EA5E9' },
+  { id: '6', name: 'Others', icon: 'ellipsis-horizontal', color: '#64748B' },
 ];
 
 export default function AddExpenseScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [screenState, setScreenState] = useState<'typing' | 'success'>('typing');
   const [amount, setAmount] = useState('0');
   const [selectedCat, setSelectedCat] = useState('1');
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [saving, setSaving] = useState(false);
 
+  // Dynamically hide the bottom tab bar when this screen is focused
   useFocusEffect(
     useCallback(() => {
       setScreenState('typing');
       setAmount('0');
-    }, [])
+
+      const parent = navigation.getParent();
+      parent?.setOptions({
+        tabBarStyle: { display: 'none' },
+      });
+
+      return () => {
+        parent?.setOptions({
+          tabBarStyle: { display: 'flex' }, // or your original tab bar style
+        });
+      };
+    }, [navigation])
   );
 
   const numericAmount = parseInt(amount) || 0;
   const isOverBudget = numericAmount > INITIAL_FLEX_POOL;
+  
+  const getCategoryName = (id: string) => {
+    return CATEGORIES.find(cat => cat.id === id)?.name || 'Other';
+  };
 
   const handlePressNumber = (num: string) => {
     if (amount === '0') setAmount(num);
     else if (amount.length < 9) setAmount(amount + num);
   };
 
-  const handleAddExpense = () => {
-    if (numericAmount > 0 && !isOverBudget) setScreenState('success');
+  const handleAddExpense = async () => {
+    try {
+      if (numericAmount <= 0 || isOverBudget) return;
+      setSaving(true);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      /* INSERT EXPENSE */
+      const { error: expenseError } = await supabase
+        .from('expenses')
+        .insert({
+          user_id: user.id,
+          expense: getCategoryName(selectedCat),
+          category: getCategoryName(selectedCat),
+          amount: numericAmount,
+          is_recurring: isRecurring,
+        });
+
+      if (expenseError) {
+        console.log(expenseError);
+        return;
+      }
+
+      /* FETCH PROFILE */
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile) {
+        console.log(profileError);
+        return;
+      }
+
+      /* UPDATE SPENT */
+      const updatedSpent = profile.current_month_spent + numericAmount;
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ current_month_spent: updatedSpent })
+        .eq('id', user.id);
+
+      if (updateError) {
+        console.log(updateError);
+        return;
+      }
+
+      setScreenState('success');
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (screenState === 'success') {
     return (
       <Animated.View entering={FadeIn.duration(500)} style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        {/* Ensures the tab bar stays hidden on the success screen too */}
+        <Tabs.Screen options={{ tabBarStyle: { display: 'none' } }} />
+        
         <View style={styles.successContent}>
-          <View style={styles.checkCircle}><Ionicons name="checkmark-sharp" size={40} color="#FFFFFF" /></View>
+          <View style={styles.checkCircle}>
+            <Ionicons name="checkmark-sharp" size={48} color="#FFFFFF" />
+          </View>
           <Text style={styles.successTitle}>Transaction Logged</Text>
           <Text style={styles.successSub}>₹{amount} successfully recorded.</Text>
         </View>
-        <View style={styles.bottomCtaContainer}>
+        <View style={[styles.bottomCtaContainer, { paddingBottom: insets.bottom + 20 }]}>
           <Pressable style={styles.primaryBtn} onPress={() => router.replace('/(tabs)')}>
             <Text style={styles.primaryBtnText}>View Dashboard</Text>
           </Pressable>
@@ -60,65 +149,191 @@ export default function AddExpenseScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <StatusBar barStyle="light-content" backgroundColor="#166534" />
+      
+      {/* Declaratively hide the tab bar just in case */}
+      <Tabs.Screen options={{ tabBarStyle: { display: 'none' } }} />
+      
+      {/* Centered Notch Header with Close Icon */}
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+        <View style={styles.headerInner}>
+          <View style={styles.headerSide} /> 
           <Text style={styles.headerTitle}>Entry Log</Text>
-          <Pressable onPress={() => router.back()} style={styles.closeBtn}>
-            <Ionicons name="close" size={18} color="#0F172A" />
-          </Pressable>
-        </View>
-
-        <Animated.View entering={FadeInUp.springify()} style={styles.body}>
-          <View style={styles.amountDisplay}>
-            <Text style={[styles.amountTextLarge, isOverBudget && { color: '#E11D48' }]}>₹{amount}</Text>
-            {isOverBudget && <Text style={styles.errorText}>Exceeds budget</Text>}
+          <View style={styles.headerSide}>
+            <Pressable onPress={() => router.back()} style={styles.headerIconBtn}>
+              <Ionicons name="close" size={20} color="#FFFFFF" />
+            </Pressable>
           </View>
+        </View>
+      </View>
 
+      <Animated.View entering={FadeInUp.springify()} style={styles.body}>
+        <View style={styles.topSection}>
+          {/* Amount Display */}
+          <View style={styles.amountDisplay}>
+            <Text style={styles.currencyPrefix}>₹</Text>
+            <Text style={[styles.amountTextLarge, isOverBudget && { color: '#E11D48' }]}>
+              {amount}
+            </Text>
+          </View>
+          {isOverBudget && (
+            <View style={styles.errorBox}>
+              <Ionicons name="alert-circle" size={14} color="#E11D48" />
+              <Text style={styles.errorText}>Exceeds budget limit</Text>
+            </View>
+          )}
+
+          {/* Category Grid */}
           <View style={styles.catGrid}>
             {CATEGORIES.map((cat) => (
-              <Pressable key={cat.id} onPress={() => setSelectedCat(cat.id)} style={[styles.catItem, selectedCat === cat.id && { backgroundColor: `${cat.color}15`, borderColor: cat.color }]}>
-                <Ionicons name={cat.icon as any} size={18} color={selectedCat === cat.id ? cat.color : '#94A3B8'} />
+              <Pressable 
+                key={cat.id} 
+                onPress={() => setSelectedCat(cat.id)} 
+                style={[
+                  styles.catItem, 
+                  selectedCat === cat.id && { backgroundColor: `${cat.color}15`, borderColor: cat.color }
+                ]}
+              >
+                <Ionicons 
+                  name={cat.icon as any} 
+                  size={24} 
+                  color={selectedCat === cat.id ? cat.color : '#94A3B8'} 
+                />
+                <Text style={[styles.catText, selectedCat === cat.id && { color: cat.color, fontWeight: '700' }]}>
+                  {cat.name}
+                </Text>
               </Pressable>
             ))}
           </View>
+        </View>
+
+        {/* Numpad & Actions */}
+        <View style={[styles.bottomSection, { paddingBottom: insets.bottom > 0 ? insets.bottom + 10 : 30 }]}>
+          
+          <Pressable
+            style={styles.recurringRow}
+            onPress={() => setIsRecurring(!isRecurring)}
+          >
+            <View
+              style={[
+                styles.checkbox,
+                isRecurring && { backgroundColor: '#166534', borderColor: '#166534' },
+              ]}
+            >
+              {isRecurring && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
+            </View>
+            <Text style={styles.recurringText}>This is a recurring bill</Text>
+          </Pressable>
 
           <View style={styles.numpadGrid}>
             {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'].map((num) => (
-              <Pressable key={num} style={styles.key} onPress={() => num === '⌫' ? setAmount(prev => prev.length > 1 ? prev.slice(0,-1) : '0') : handlePressNumber(num)}>
-                <Text style={styles.keyText}>{num}</Text>
+              <Pressable 
+                key={num} 
+                style={styles.key} 
+                onPress={() => num === '⌫' ? setAmount(prev => prev.length > 1 ? prev.slice(0,-1) : '0') : handlePressNumber(num)}
+              >
+                {num === '⌫' ? (
+                  <Ionicons name="backspace-outline" size={24} color="#0F172A" />
+                ) : (
+                  <Text style={styles.keyText}>{num}</Text>
+                )}
               </Pressable>
             ))}
           </View>
 
-          <Pressable style={[styles.primaryBtn, (amount === '0' || isOverBudget) && { opacity: 0.4 }]} onPress={handleAddExpense} disabled={amount === '0' || isOverBudget}>
-            <Text style={styles.primaryBtnText}>Confirm Transaction</Text>
+          <Pressable 
+            style={[styles.primaryBtn, (amount === '0' || isOverBudget) && { opacity: 0.5 }]} 
+            onPress={handleAddExpense} 
+            disabled={amount === '0' || isOverBudget}
+          >
+            <Text style={styles.primaryBtnText}>
+              {saving ? 'Saving...' : 'Confirm Transaction'}
+            </Text>
           </Pressable>
-        </Animated.View>
-      </SafeAreaView>
+        </View>
+      </Animated.View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 25, paddingVertical: 15 },
-  headerTitle: { fontFamily: 'Jakarta-ExtraBold', fontSize: 18, color: '#0F172A' },
-  closeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center' },
-  body: { flex: 1, paddingHorizontal: 25, justifyContent: 'space-between' },
-  amountDisplay: { alignItems: 'center', marginVertical: 10 },
-  amountTextLarge: { fontSize: 52, fontFamily: 'Jakarta-ExtraBold', color: '#0F172A' },
-  errorText: { color: '#E11D48', fontFamily: 'Inter-Bold', fontSize: 12, marginTop: 4 },
-  catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
-  catItem: { width: 56, height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#F1F5F9', backgroundColor: '#F8FAFC' },
-  numpadGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 6,marginTop:-1 },
-  key: { width: '30%', height: 50, justifyContent: 'center', alignItems: 'center', borderRadius: 14, backgroundColor: '#F8FAFC' },
-  keyText: { fontSize: 20, fontFamily: 'Jakarta-Bold' },
-  primaryBtn: { backgroundColor: '#166534', paddingVertical: 18, borderRadius: 16, alignItems: 'center', marginBottom: 100 },
-  primaryBtnText: { color: '#FFFFFF', fontSize: 15, fontFamily: 'Jakarta-Bold' },
+  
+  // Header
+  header: { 
+    backgroundColor: '#166534', 
+    paddingBottom: 20, 
+    borderBottomLeftRadius: 24, 
+    borderBottomRightRadius: 24,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  headerInner: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingHorizontal: 20 
+  },
+  headerSide: { 
+    width: 44, // Match icon button width for perfect centering
+    alignItems: 'center'
+  },
+  headerTitle: { 
+    flex: 1, 
+    textAlign: 'center', 
+    fontSize: 22, 
+    fontWeight: '800', 
+    color: '#FFFFFF' 
+  },
+  headerIconBtn: { 
+    width: 40, 
+    height: 40, 
+    borderRadius: 20, 
+    backgroundColor: 'rgba(255,255,255,0.2)', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+
+  body: { flex: 1, paddingHorizontal: 24, justifyContent: 'space-between', paddingTop: 10 },
+  topSection: { flex: 1, justifyContent: 'center' }, // Centers the top content dynamically
+  bottomSection: { },
+
+  // Amount
+  amountDisplay: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  currencyPrefix: { fontSize: 32, fontWeight: '800', color: '#94A3B8', marginRight: 8, marginTop: 10 },
+  amountTextLarge: { fontSize: 64, fontWeight: '800', color: '#0F172A', letterSpacing: -2 },
+  errorBox: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, backgroundColor: '#FFF1F2', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, alignSelf: 'center', marginBottom: 10 },
+  errorText: { color: '#E11D48', fontWeight: '700', fontSize: 13 },
+
+  // Categories
+  catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' },
+  catItem: { width: '30%', paddingVertical: 16, borderRadius: 20, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#F1F5F9', backgroundColor: '#F8FAFC' },
+  catText: { fontSize: 12, fontWeight: '500', color: '#64748B', marginTop: 8 },
+
+  // Recurring (Moved to sit directly above Numpad)
+  recurringRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20, backgroundColor: '#F8FAFC', paddingVertical: 14, borderRadius: 16, borderWidth: 1, borderColor: '#F1F5F9' },
+  checkbox: { width: 24, height: 24, borderRadius: 8, borderWidth: 2, borderColor: '#CBD5E1', justifyContent: 'center', alignItems: 'center' },
+  recurringText: { marginLeft: 12, fontSize: 15, fontWeight: '600', color: '#334155' },
+
+  // Numpad
+  numpadGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8, marginBottom: 20 },
+  key: { width: '31%', height: 60, justifyContent: 'center', alignItems: 'center', borderRadius: 16, backgroundColor: '#F8FAFC' },
+  keyText: { fontSize: 24, fontWeight: '800', color: '#0F172A' },
+
+  // Buttons
+  primaryBtn: { backgroundColor: '#166534', paddingVertical: 20, borderRadius: 20, alignItems: 'center', shadowColor: '#166534', shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 },
+  primaryBtnText: { color: '#FFFFFF', fontSize: 17, fontWeight: '700' },
+
+  // Success State
   successContent: { alignItems: 'center', flex: 1, justifyContent: 'center' },
-  checkCircle: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#10B981', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  successTitle: { fontSize: 22, fontFamily: 'Jakarta-ExtraBold' },
-  successSub: { fontSize: 14, color: '#64748B', marginTop: 8 },
-  bottomCtaContainer: { paddingBottom: 60, paddingHorizontal: 25 }
+  checkCircle: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#10B981', justifyContent: 'center', alignItems: 'center', marginBottom: 24, shadowColor: '#10B981', shadowOpacity: 0.4, shadowRadius: 15, elevation: 8 },
+  successTitle: { fontSize: 28, fontWeight: '800', color: '#0F172A' },
+  successSub: { fontSize: 16, fontWeight: '500', color: '#64748B', marginTop: 12 },
+  bottomCtaContainer: { paddingHorizontal: 25 },
 });

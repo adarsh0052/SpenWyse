@@ -22,8 +22,9 @@ export default function RootLayout() {
           <Stack.Screen name="login" />
           <Stack.Screen name="user-type" />
           <Stack.Screen name="income" />
-          <Stack.Screen name="obligations" />
+          <Stack.Screen name="currmonthspent" />
           <Stack.Screen name="transition" />
+          <Stack.Screen name="reward" />
         </Stack>
       </View>
     </OnboardingProvider>

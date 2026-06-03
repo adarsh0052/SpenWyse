@@ -1,174 +1,402 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Dimensions,
+  StatusBar,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { PieChart } from 'react-native-gifted-charts';
+import { supabase } from '../../services/supabase';
+import { calculateFinanceSnapshot } from '../../services/finance';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const { width } = Dimensions.get('window');
 
-// --- Mock Data ---
-const timeTabs = ['Month', '3M', 'Year'];
+const HORIZONTAL_PADDING = 20;
+const CARD_PADDING = 16;
+const COLS = 9;
+const CELL_GAP = 5;
+const AVAILABLE_WIDTH = width - (HORIZONTAL_PADDING * 2) - (CARD_PADDING * 2);
+const CELL_SIZE = Math.floor((AVAILABLE_WIDTH - (CELL_GAP * (COLS - 1))) / COLS);
+const CELL_RADIUS = CELL_SIZE / 2;
 
-const summaryStats = [
-  { label: 'Total Spent', value: '₹12,420', highlight: true },
-  { label: 'Total Saved', value: '₹3,980', highlight: false },
-  { label: 'Avg. Daily Spend', value: '₹401', highlight: false },
-  { label: 'Highest Day', value: '₹620', highlight: false },
+const CATEGORIES = [
+  { name: 'Food', color: '#10B981' },
+  { name: 'Shopping', color: '#F59E0B' },
+  { name: 'Transport', color: '#6366F1' },
+  { name: 'Bills', color: '#E11D48' },
+  { name: 'Health', color: '#0EA5E9' },
+  { name: 'Others', color: '#64748B' },
 ];
 
-// Bar Chart Mock Data for Analytics
-const barDataAmounts = [400, 700, 1200, 900, 650, 1100, 850];
-const barLabels = ['1', '5', '10', '15', '20', '25', '30'];
-const maxBarAmount = 1500;
+// ─── Streak Card ──────────────────────────────────────────────────────────────
 
-const categoryBreakdown = [
-  { name: 'Food', percent: 35, amount: '₹4,340', color: '#166534' },
-  { name: 'Shopping', percent: 30, amount: '₹3,720', color: '#F59E0B' },
-  { name: 'Transport', percent: 15, amount: '₹1,860', color: '#6366F1' },
-  { name: 'Entertainment', percent: 10, amount: '₹1,240', color: '#E11D48' },
-  { name: 'Others', percent: 10, amount: '₹1,260', color: '#94A3B8' },
-];
+function StreakCard({
+  streak,
+  dailyLimit,
+  loaded,
+}: {
+  streak: number;
+  dailyLimit: number;
+  loaded: boolean;
+}) {
+  if (!loaded) return null;
 
-const pieData = categoryBreakdown.map(cat => ({
-  value: cat.percent,
-  color: cat.color,
-}));
+  const isEmpty = streak === 0;
+  const limitLabel = `₹${dailyLimit.toLocaleString()} flexible / day`;
+
+  return (
+    <View style={streakStyles.card}>
+      <View style={[streakStyles.countBlock, isEmpty && streakStyles.countBlockEmpty]}>
+        <Text style={[streakStyles.countNum, isEmpty && streakStyles.countNumEmpty]}>
+          {streak}
+        </Text>
+        <Text style={[streakStyles.countUnit, isEmpty && streakStyles.countUnitEmpty]}>
+          {streak === 1 ? 'day' : 'days'}
+        </Text>
+      </View>
+
+      <View style={streakStyles.divider} />
+
+      <View style={streakStyles.infoBlock}>
+        <View style={streakStyles.infoTopRow}>
+          <Text style={streakStyles.infoTitle}>On-Track Streak</Text>
+          <View style={[streakStyles.statusPill, isEmpty && streakStyles.statusPillEmpty]}>
+            <View style={[streakStyles.statusDot, isEmpty && streakStyles.statusDotEmpty]} />
+            <Text style={[streakStyles.statusText, isEmpty && streakStyles.statusTextEmpty]}>
+              {isEmpty ? 'Start today' : 'Active'}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={streakStyles.limitLine}>{limitLabel}</Text>
+
+        <View style={streakStyles.noticeRow}>
+          <Ionicons name="refresh-outline" size={11} color="#94A3B8" />
+          <Text style={streakStyles.noticeText}>Recurring bills excluded from streak</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Analytics() {
-  const [activeTab, setActiveTab] = useState('Month');
-  const [selectedBarIndex, setSelectedBarIndex] = useState<number>(6); // Default select last item
+  const insets = useSafeAreaInsets();
+  const [profile, setProfile] = useState<any>(null);
+  const [expenses, setExpenses] = useState<any[]>([]);
+  const [allocations, setAllocations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+
+  // ─── Data Fetching ─────────────────────────────────────────────────────────
+
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profileData } = await supabase
+        .from('profiles').select('*').eq('id', user.id).single();
+      setProfile(profileData);
+
+      const { data: expensesData } = await supabase
+        .from('expenses').select('*').eq('user_id', user.id);
+      setExpenses(expensesData || []);
+
+      const { data: allocationsData, error: allocationsError } = await supabase
+        .from('allocations').select('*').eq('user_id', user.id);
+      if (!allocationsError) setAllocations(allocationsData || []);
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchAnalytics();
+    }, [])
+  );
+
+  // ─── Derived Values ────────────────────────────────────────────────────────
+
+  const profileLoaded = !loading && profile != null;
+  const totalSpent = profile?.current_month_spent || 0;
+  const totalAllocated = allocations.reduce((sum, item) => sum + item.amount, 0);
+
+  const finance = calculateFinanceSnapshot({
+    income: profile?.monthly_income || 0,
+    spent: totalSpent,
+    commitments: totalAllocated,
+  });
+
+  const dailyLimit = finance.dailySpendLimit;
+
+  const recurringSpend = expenses
+    .filter(item => {
+      if (!item.is_recurring) return false;
+      const expenseDate = new Date(item.expense_date);
+      const today = new Date();
+      return (
+        expenseDate.getMonth() === today.getMonth() &&
+        expenseDate.getFullYear() === today.getFullYear()
+      );
+    })
+    .reduce((sum, item) => sum + item.amount, 0);
+
+  // ─── Heatmap / Calendar Data ───────────────────────────────────────────────
+
+  const currentDate = new Date();
+  const currentDay = currentDate.getDate();
+  const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+
+  const dailySpendMap: Record<number, number> = {};
+  const dailyRecurringMap: Record<number, number> = {};
+
+  expenses.forEach(expense => {
+    const day = new Date(expense.expense_date).getDate();
+    dailySpendMap[day] = (dailySpendMap[day] || 0) + expense.amount;
+    if (expense.is_recurring) {
+      dailyRecurringMap[day] = (dailyRecurringMap[day] || 0) + expense.amount;
+    }
+  });
+
+  const getIntensity = (totalAmount: number, recurringAmount: number) => {
+    if (totalAmount === 0) return '#F1F5F9';
+    if ((totalAmount - recurringAmount) <= dailyLimit) return '#16A34A';
+    return '#EF4444';
+  };
+
+  // ─── Streak Logic ──────────────────────────────────────────────────────────
+
+  let currentStreak = 0;
+  if (profileLoaded && dailyLimit > 0) {
+    const profileCreatedDate = new Date(profile.created_at);
+    const startDay =
+      profileCreatedDate.getMonth() === currentDate.getMonth() &&
+      profileCreatedDate.getFullYear() === currentDate.getFullYear()
+        ? profileCreatedDate.getDate()
+        : 1;
+
+    for (let day = currentDay; day >= startDay; day--) {
+      const totalForDay = dailySpendMap[day] || 0;
+      const recurringForDay = dailyRecurringMap[day] || 0;
+      const flexibleForDay = totalForDay - recurringForDay;
+
+      if (flexibleForDay <= dailyLimit) {
+        currentStreak++;
+      } else {
+        break;
+      }
+    }
+  }
+
+  const totalCells = Math.ceil(daysInMonth / COLS) * COLS;
+
+  // ─── Category Breakdown ────────────────────────────────────────────────────
+
+  const currentMonthExpenses = expenses.filter(expense => {
+    const expenseDate = new Date(expense.expense_date);
+    const today = new Date();
+    return (
+      expenseDate.getMonth() === today.getMonth() &&
+      expenseDate.getFullYear() === today.getFullYear()
+    );
+  });
+  
+  const trackedSpent = currentMonthExpenses.reduce((sum, item) => sum + item.amount, 0);
+
+  const categoryTotals: Record<string, number> = {};
+  currentMonthExpenses.forEach(({ category, amount }) => {
+    categoryTotals[category] = (categoryTotals[category] || 0) + amount;
+  });
+
+  const categoryBreakdown = Object.entries(categoryTotals).map(([name, amount]) => ({
+    name,
+    rawAmount: amount,
+    amount: `₹${amount.toLocaleString()}`,
+    percent: trackedSpent > 0 ? Math.round((amount / trackedSpent) * 100) : 0,
+    color: CATEGORIES.find(c => c.name === name)?.color || '#94A3B8',
+  }));
+
+  const pieData = categoryBreakdown.map(({ rawAmount: value, color }) => ({ value, color }));
+
+  // ─── Summary Stats ─────────────────────────────────────────────────────────
+
+  const summaryStats = [
+    { label: 'Total Spent', value: `₹${totalSpent.toLocaleString()}`, highlight: true, fullWidth: true },
+    { label: 'Allocations', value: `₹${totalAllocated.toLocaleString()}`, highlight: false, fullWidth: false },
+    { label: 'Remaining', value: `₹${finance.flexiblePool.toLocaleString()}`, highlight: false, fullWidth: false },
+    { label: 'Daily Spend Limit', value: `₹${finance.dailySpendLimit.toLocaleString()}`, highlight: false, fullWidth: false },
+    { label: 'Bills', value: `₹${recurringSpend.toLocaleString()}`, highlight: false, fullWidth: false },
+  ];
+
+  // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
     <View style={styles.container}>
-      <SafeAreaView edges={['top']} style={styles.safeArea}>
-        
-        {/* HEADER */}
-        <View style={styles.header}>
+      <StatusBar barStyle="light-content" backgroundColor="#166534" />
+      
+      {/* Centered Notch Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+        <View style={styles.headerInner}>
+          <View style={styles.headerSide} />
           <Text style={styles.headerTitle}>Analytics</Text>
-          <Pressable style={styles.iconBtn}>
-            <Ionicons name="calendar-outline" size={20} color="#0F172A" />
-          </Pressable>
+          <View style={styles.headerSide}>
+            <Pressable style={styles.headerIconBtn}>
+              <Ionicons name="calendar-outline" size={20} color="#FFFFFF" />
+            </Pressable>
+          </View>
+        </View>
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        
+        {/* Summary Stats Grid */}
+        <View style={styles.statsGrid}>
+          {summaryStats.map((stat, i) => (
+            <View
+              key={i}
+              style={[styles.statCard, stat.fullWidth ? styles.statCardFull : styles.statCardHalf]}
+            >
+              <Text style={styles.statLabel}>{stat.label}</Text>
+              <Text style={[
+                styles.statValue,
+                stat.highlight && { color: '#166534' },
+                stat.fullWidth && { fontSize: 32 },
+              ]}>
+                {stat.value}
+              </Text>
+            </View>
+          ))}
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          
-          {/* TIMEFRAME TOGGLE */}
-          <View style={styles.toggleContainer}>
-            {timeTabs.map((tab) => {
-              const isActive = activeTab === tab;
-              return (
-                <Pressable 
-                  key={tab} 
-                  style={[styles.toggleBtn, isActive && styles.toggleBtnActive]}
-                  onPress={() => setActiveTab(tab)}
-                >
-                  <Text style={[styles.toggleText, isActive && styles.toggleTextActive]}>
-                    {tab}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+        {/* Spending Activity — Calendar Heatmap */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>Spending Activity</Text>
 
-          {/* SUMMARY STATS GRID */}
-          <View style={styles.statsGrid}>
-            {summaryStats.map((stat, i) => (
-              <View key={i} style={styles.statCard}>
-                <Text style={styles.statLabel}>{stat.label}</Text>
-                <Text style={[styles.statValue, stat.highlight && { color: '#166534' }]}>
-                  {stat.value}
-                </Text>
-              </View>
-            ))}
-          </View>
+          <View style={styles.heatmapCard}>
+            {Array.from({ length: Math.ceil(totalCells / COLS) }, (_, rowIdx) => (
+              <View key={rowIdx} style={[styles.calendarRow, { marginBottom: CELL_GAP }]}>
+                {Array.from({ length: COLS }, (_, colIdx) => {
+                  const day = rowIdx * COLS + colIdx + 1;
+                  const isValid = day >= 1 && day <= daysInMonth;
+                  const isFuture = isValid && day > currentDay;
+                  const isToday = isValid && day === currentDay;
+                  const amount = isValid ? (dailySpendMap[day] || 0) : 0;
+                  const recurringAmount = isValid ? (dailyRecurringMap[day] || 0) : 0;
+                  const isSelected = selectedDay === day && isValid;
+                  const bgColor = isFuture ? '#F1F5F9' : getIntensity(amount, recurringAmount);
+                  const textColor = (amount === 0 || isFuture) ? '#94A3B8' : '#FFFFFF';
 
-          {/* SPENDING OVERVIEW (BAR CHART REPLACEMENT) */}
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Spending Overview</Text>
-            
-            <View style={styles.chartContainer}>
-              <View style={styles.chartBody}>
-                {/* Y-Axis */}
-                <View style={styles.yAxis}>
-                  <Text style={styles.yAxisLabel}>₹1.5k</Text>
-                  <Text style={styles.yAxisLabel}>₹750</Text>
-                  <Text style={styles.yAxisLabel}>0</Text>
-                </View>
+                  if (!isValid) {
+                    return <View key={colIdx} style={{ width: CELL_SIZE, height: CELL_SIZE }} />;
+                  }
 
-                {/* Graph Area */}
-                <View style={styles.graphArea}>
-                  <View style={[styles.gridLine, { top: 0 }]} />
-                  <View style={[styles.gridLine, { top: '50%' }]} />
-                  <View style={[styles.gridLine, { bottom: 0 }]} />
-
-                  <View style={styles.barsContainer}>
-                    {barDataAmounts.map((val, i) => {
-                      const isSelected = i === selectedBarIndex;
-                      const heightPercent = (val / maxBarAmount) * 100;
-                      
-                      return (
-                        <Pressable 
-                          key={i} 
-                          style={styles.barWrapper}
-                          onPress={() => setSelectedBarIndex(i)}
-                        >
-                          {isSelected && (
-                            <View style={[styles.tooltipContainer, { bottom: `${heightPercent}%` }]}>
-                              <Text style={styles.tooltipText} numberOfLines={1}>₹{val}</Text>
-                            </View>
-                          )}
-                          <View style={[
-                            styles.thinBar, 
-                            { 
-                              height: `${heightPercent}%`, 
-                              backgroundColor: '#166534', 
-                              opacity: isSelected ? 1 : 0.3, 
-                              width: isSelected ? 12 : 8 
-                            }
-                          ]} />
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-              </View>
-
-              {/* X-Axis */}
-              <View style={styles.xAxis}>
-                <View style={styles.xAxisSpacer} />
-                <View style={styles.xAxisLabelsContainer}>
-                  {barLabels.map((day, i) => {
-                    const isSelected = i === selectedBarIndex;
-                    return (
-                      <Text key={i} style={[styles.dayLabel, isSelected && { color: '#166534' }]}>
+                  return (
+                    <Pressable
+                      key={colIdx}
+                      onPress={() => setSelectedDay(isSelected ? null : day)}
+                      style={[
+                        styles.heatCell,
+                        {
+                          width: CELL_SIZE,
+                          height: CELL_SIZE,
+                          borderRadius: CELL_RADIUS,
+                          backgroundColor: bgColor,
+                          borderWidth: isToday ? 2 : isSelected ? 1.5 : 0,
+                          borderColor: isToday ? '#0F172A' : '#64748B',
+                        },
+                      ]}
+                    >
+                      <Text style={[
+                        styles.cellDateText,
+                        { color: textColor, fontWeight: isToday ? 'bold' : '500' },
+                      ]}>
                         {day}
                       </Text>
-                    );
-                  })}
-                </View>
+                    </Pressable>
+                  );
+                })}
               </View>
-            </View>
+            ))}
+
+            {selectedDay != null && (() => {
+              const selTotal = dailySpendMap[selectedDay] || 0;
+              const selRecurring = dailyRecurringMap[selectedDay] || 0;
+              const selFlexible = selTotal - selRecurring;
+              const overLimit = selFlexible > dailyLimit;
+              return (
+                <View style={styles.tooltipRow}>
+                  <Text style={styles.tooltipDate}>
+                    {new Date(currentDate.getFullYear(), currentDate.getMonth(), selectedDay)
+                      .toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                  </Text>
+                  <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                    <Text style={[
+                      styles.tooltipAmount,
+                      selTotal === 0
+                        ? { color: '#94A3B8' }
+                        : overLimit
+                          ? { color: '#EF4444' }
+                          : { color: '#16A34A' },
+                    ]}>
+                      {selTotal === 0 ? 'No spend' : `₹${selTotal.toLocaleString()}`}
+                    </Text>
+                    {selRecurring > 0 && (
+                      <Text style={styles.tooltipBill}>
+                        Bills ₹{selRecurring.toLocaleString()}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              );
+            })()}
           </View>
 
-          {/* CATEGORY BREAKDOWN (DONUT CHART + LEGEND) */}
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Category Breakdown</Text>
-            
+          <StreakCard
+            streak={currentStreak}
+            dailyLimit={dailyLimit}
+            loaded={profileLoaded}
+          />
+        </View>
+
+        {/* Category Breakdown */}
+        <View style={[styles.sectionContainer, { marginTop: 16 }]}>
+          <Text style={styles.sectionTitle}>Category Breakdown</Text>
+          
+          {trackedSpent === 0 ? (
+            <View style={styles.emptyBreakdownCard}>
+              <Ionicons name="pie-chart-outline" size={40} color="#94A3B8" />
+              <Text style={styles.emptyBreakdownTitle}>No expenses this month</Text>
+              <Text style={styles.emptyBreakdownText}>
+                Your spending breakdown will appear here once you log your first transaction.
+              </Text>
+            </View>
+          ) : (
             <View style={styles.breakdownCard}>
               <View style={styles.pieContainer}>
                 <PieChart
                   data={pieData}
                   donut
-                  radius={50}          // Reduced to prevent overflow
-                  innerRadius={32}     // Adjusted proportionately
+                  radius={50}
+                  innerRadius={32}
                   innerCircleColor={'#FFFFFF'}
-                  centerLabelComponent={() => {
-                    return <View style={styles.pieCenter} />;
-                  }}
+                  centerLabelComponent={() => <View style={styles.pieCenter} />}
                 />
               </View>
-              
-              <View style={styles.legendContainer}>
+              <View style={styles.categoryLegend}>
                 {categoryBreakdown.map((item, i) => (
                   <View key={i} style={styles.legendItem}>
                     <View style={styles.legendLeft}>
@@ -183,85 +411,139 @@ export default function Analytics() {
                 ))}
               </View>
             </View>
-          </View>
+          )}
+        </View>
 
-          <View style={{ height: 120 }} />
-        </ScrollView>
-      </SafeAreaView>
+        <View style={{ height: 120 }} />
+      </ScrollView>
     </View>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  safeArea: { flex: 1 },
   
-  // HEADER
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 25, paddingVertical: 15 },
-  headerTitle: { fontSize: 24, fontFamily: 'Jakarta-ExtraBold', color: '#0F172A', letterSpacing: -0.5 },
-  iconBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0' },
-
-  scrollContent: { paddingHorizontal: 25, paddingTop: 10 },
-
-  // TOGGLE TABS
-  toggleContainer: { flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 12, padding: 4, marginBottom: 24 },
-  toggleBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
-  toggleBtnActive: { backgroundColor: '#166534', shadowColor: '#166534', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 },
-  toggleText: { fontSize: 13, fontFamily: 'Inter-Bold', color: '#64748B' },
-  toggleTextActive: { color: '#FFFFFF' },
-
-  // STATS GRID
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 32 },
-  statCard: { width: '48%', backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#F1F5F9', marginBottom: 15, shadowColor: '#94A3B8', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  statLabel: { fontSize: 10, fontFamily: 'Inter-Bold', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 },
-  statValue: { fontSize: 22, fontFamily: 'Jakarta-ExtraBold', color: '#0F172A', letterSpacing: -0.5 },
-
-  // SECTION HEADERS
-  sectionContainer: { marginBottom: 32 },
-  sectionTitle: { fontSize: 18, fontFamily: 'Jakarta-Bold', color: '#0F172A', marginBottom: 16 },
-
-  // BAR CHART REPLACEMENT
-  chartContainer: { backgroundColor: '#FFFFFF', padding: 24, borderRadius: 24, borderWidth: 1, borderColor: '#E2E8F0' },
-  chartBody: { flexDirection: 'row', height: 160 }, 
-  yAxis: { width: 38, justifyContent: 'space-between', paddingVertical: 2 },
-  yAxisLabel: { fontSize: 10, fontFamily: 'Inter-Medium', color: '#94A3B8' },
-  graphArea: { flex: 1, position: 'relative' },
-  gridLine: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: '#F1F5F9' },
-  barsContainer: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
-  barWrapper: { flex: 1, alignItems: 'center', height: '100%', justifyContent: 'flex-end', position: 'relative' },
-  thinBar: { borderRadius: 4, zIndex: 1 },
-  
-  tooltipContainer: { 
-    position: 'absolute',
-    backgroundColor: '#0F172A', 
-    paddingHorizontal: 8, 
-    paddingVertical: 4, 
-    borderRadius: 6, 
-    marginBottom: 6, 
-    zIndex: 10,
-    minWidth: 45, 
-    alignItems: 'center',
-    justifyContent: 'center'
+  // Header
+  header: { 
+    backgroundColor: '#166534', 
+    paddingBottom: 20, 
+    borderBottomLeftRadius: 24, 
+    borderBottomRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 8,
   },
-  tooltipText: { color: '#FFFFFF', fontSize: 11, fontFamily: 'Inter-Bold' },
+  headerInner: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    paddingHorizontal: 20 
+  },
+  headerSide: { 
+    width: 44, // Matches the icon button width for perfect centering
+    alignItems: 'center'
+  },
+  headerTitle: { 
+    flex: 1, 
+    textAlign: 'center', 
+    fontSize: 22, 
+    fontWeight: '800', 
+    color: '#FFFFFF', 
+  },
+  headerIconBtn: { 
+    width: 40, 
+    height: 40, 
+    borderRadius: 20, 
+    backgroundColor: 'rgba(255,255,255,0.2)', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  
+  scrollContent: { paddingHorizontal: HORIZONTAL_PADDING, paddingTop: 20, },
 
-  xAxis: { flexDirection: 'row', marginTop: 12, alignItems: 'center' },
-  xAxisSpacer: { width: 38 },
-  xAxisLabelsContainer: { flex: 1, flexDirection: 'row', justifyContent: 'space-between' },
-  dayLabel: { flex: 1, textAlign: 'center', fontSize: 11, color: '#94A3B8', fontFamily: 'Inter-Bold', letterSpacing: 0.5 },
+  sectionContainer: { marginBottom: 32 },
+  sectionTitle: { fontSize: 19, fontWeight: '700', color: '#0F172A', marginBottom: 16 },
 
-  // BREAKDOWN AREA
+  heatmapCard: { backgroundColor: '#FFFFFF', borderRadius: 24, borderWidth: 1, borderColor: '#E2E8F0', padding: CARD_PADDING },
+  calendarRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  heatCell: { justifyContent: 'center', alignItems: 'center' },
+  cellDateText: { fontSize: 10 },
+
+  tooltipRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: '#F8FAFC', borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0' },
+  tooltipDate: { fontSize: 12, fontWeight: '700', color: '#0F172A' },
+  tooltipAmount: { fontSize: 13, fontWeight: '700' },
+  tooltipBill: { fontSize: 11, fontWeight: '500', color: '#64748B' },
+
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 24 },
+  statCard: { backgroundColor: '#FFFFFF', padding: 16, borderRadius: 18, borderWidth: 1, borderColor: '#F1F5F9', marginBottom: 12, elevation: 2 },
+  statCardFull: { width: '100%', paddingVertical: 20 },
+  statCardHalf: { width: '48.5%' },
+  statLabel: { fontSize: 10, fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 4 },
+  statValue: { fontSize: 22, fontWeight: '800', color: '#0F172A', letterSpacing: -0.5 },
+
+  // Breakdown Card
   breakdownCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 16, borderRadius: 24, borderWidth: 1, borderColor: '#E2E8F0' },
   pieContainer: { width: 110, height: 110, justifyContent: 'center', alignItems: 'center' },
   pieCenter: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#FFFFFF' },
-  
-  // LEGEND (Fixed Overflow)
-  legendContainer: { flex: 1, paddingLeft: 12 }, // flex 1 takes remaining space without pushing out
+  categoryLegend: { flex: 1, paddingLeft: 12 },
   legendItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  legendLeft: { flexDirection: 'row', alignItems: 'center', flexShrink: 1 }, // allows name to shrink if needed
+  legendLeft: { flexDirection: 'row', alignItems: 'center', flexShrink: 1 },
   legendDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
-  legendName: { fontSize: 12, fontFamily: 'Inter-Bold', color: '#0F172A', flexShrink: 1 },
+  legendName: { fontSize: 13, fontWeight: '600', color: '#0F172A', flexShrink: 1 },
   legendRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  legendPercent: { fontSize: 11, fontFamily: 'Inter-Medium', color: '#64748B', width: 28, textAlign: 'right' },
-  legendAmount: { fontSize: 12, fontFamily: 'Inter-Bold', color: '#0F172A', width: 50, textAlign: 'right' } // Reduced width slightly to prevent text cutoff
+  legendPercent: { fontSize: 11, fontWeight: '500', color: '#64748B', width: 28, textAlign: 'right' },
+  legendAmount: { fontSize: 13, fontWeight: '700', color: '#0F172A', width: 60, textAlign: 'right' },
+
+  // Empty State
+  emptyBreakdownCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 24,
+    paddingVertical: 36,
+    paddingHorizontal: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  emptyBreakdownTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginTop: 12,
+  },
+  emptyBreakdownText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginTop: 8,
+  },
+});
+
+const streakStyles = StyleSheet.create({
+  card: { flexDirection: 'row', marginTop: 16, backgroundColor: '#FAFFFE', borderRadius: 20, borderWidth: 1, borderColor: '#D1FAE5', overflow: 'hidden', alignItems: 'stretch' },
+  countBlock: { backgroundColor: '#166534', paddingVertical: 20, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center', minWidth: 72 },
+  countBlockEmpty: { backgroundColor: '#F1F5F9' },
+  countNum: { fontSize: 34, fontWeight: '800', color: '#FFFFFF', lineHeight: 38 },
+  countNumEmpty: { color: '#CBD5E1' },
+  countUnit: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 2 },
+  countUnitEmpty: { color: '#94A3B8' },
+  divider: { width: 1, backgroundColor: '#E2F0E8' },
+  infoBlock: { flex: 1, paddingVertical: 14, paddingHorizontal: 14, justifyContent: 'center', gap: 6 },
+  infoTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
+  infoTitle: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
+  statusPill: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#DCFCE7', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 20 },
+  statusPillEmpty: { backgroundColor: '#F1F5F9' },
+  statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#16A34A' },
+  statusDotEmpty: { backgroundColor: '#CBD5E1' },
+  statusText: { fontSize: 11, fontWeight: '700', color: '#166534' },
+  statusTextEmpty: { color: '#94A3B8' },
+  limitLine: { fontSize: 13, fontWeight: '500', color: '#475569', lineHeight: 17 },
+  noticeRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  noticeText: { fontSize: 11, fontWeight: '500', color: '#94A3B8', lineHeight: 15 },
 });

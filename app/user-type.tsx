@@ -4,6 +4,8 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useOnboarding } from "../context/OnboardingContext";
+import { supabase } from "../services/supabase";
+
 
 export default function UserTypeScreen() {
   const [selectedType, setSelectedType] = useState<"student" | "employee" | null>(null);
@@ -14,12 +16,50 @@ export default function UserTypeScreen() {
     updateData({ userType: choice });
   };
 
-  const handleContinue = () => {
-    if (selectedType) {
-      router.push("/income");
-    }
-  };
+  const [loading, setLoading] = useState(false);
 
+const handleContinue = async () => {
+  if (!selectedType) return;
+    try {
+    setLoading(true);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      console.log("No authenticated user");
+
+      return;
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        user_type: selectedType,
+      })
+      .eq("id", user.id);
+
+    if (error) {
+      console.log(
+        "Profile Update Error:",
+        error
+      );
+
+      return;
+    }
+
+    updateData({
+      userType: selectedType,
+    });
+
+    router.push("/income");
+  } catch (err) {
+    console.log(err);
+  } finally {
+    setLoading(false);
+  }
+};
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -105,9 +145,11 @@ export default function UserTypeScreen() {
               !selectedType && styles.buttonDisabled
             ]} 
             onPress={handleContinue}
-            disabled={!selectedType}
+            disabled={!selectedType || loading}
           >
-            <Text style={styles.buttonText}>Continue</Text>
+            <Text style={styles.buttonText}>
+  {loading ? "Saving..." : "Continue"}
+</Text>
             <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
           </Pressable>
         </View>

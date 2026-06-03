@@ -13,18 +13,57 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useOnboarding } from "../context/OnboardingContext";
+import {supabase} from "../services/supabase";
 
 export default function IncomeScreen() {
   const { data, updateData } = useOnboarding();
   const [primaryIncome, setPrimaryIncome] = useState("");
   const [secondaryIncome, setSecondaryIncome] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const isStudent = data.userType === 'student';
   const total = (parseFloat(primaryIncome) || 0) + (parseFloat(secondaryIncome) || 0);
 
-  const handleContinue = () => {
-    updateData({ income: total });
-    router.push("/obligations");
+  const handleContinue = async () => {
+    try {
+      setLoading(true);
+  
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+  
+      if (!user) {
+        console.log("No authenticated user");
+  
+        return;
+      }
+  
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          monthly_income: total,
+        })
+        .eq("id", user.id);
+  
+      if (error) {
+        console.log(
+          "Income Update Error:",
+          error
+        );
+  
+        return;
+      }
+  
+      updateData({
+        income: total,
+      });
+  
+      router.push("/currmonthspent");
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -117,9 +156,13 @@ export default function IncomeScreen() {
                 !primaryIncome && styles.buttonDisabled
               ]}
               onPress={handleContinue}
-              disabled={!primaryIncome}
+              disabled={!primaryIncome || loading}
             >
-              <Text style={styles.buttonText}>Continue to Layout</Text>
+              <Text style={styles.buttonText}>
+  {loading
+    ? "Saving..."
+    : "Continue to Layout"}
+</Text>
               <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
             </Pressable>
           </View>

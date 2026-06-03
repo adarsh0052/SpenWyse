@@ -3,11 +3,11 @@ import { View, Text, StyleSheet, Animated } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import LottieView from "lottie-react-native";
-import { useOnboarding } from "../context/OnboardingContext";
-import { supabase } from '../services/supabase';
+// import { useOnboarding } from "../context/OnboardingContext";
+// import { supabase } from '../services/supabase';
 
 export default function TransitionScreen() {
-  const { data } = useOnboarding();
+  // const { data } = useOnboarding();
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -16,15 +16,11 @@ export default function TransitionScreen() {
       duration: 1000,
       useNativeDriver: true,
     }).start();
-
-    const timer = setTimeout(async () => {
-      await supabase.auth.updateUser({
-        data: { onboarded: true },
-      });
-
+  
+    const timer = setTimeout(() => {
       router.replace("/(tabs)");
     }, 5500);
-
+  
     return () => clearTimeout(timer);
   }, []);
 
