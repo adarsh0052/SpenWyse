@@ -2,9 +2,21 @@
 
 > Spend smarter. Save intentionally.
 
+<p align="center">
+  <img src="https://readme-typing-svg.demolab.com?font=Poppins&weight=600&size=24&pause=1000&color=22C55E&center=true&vCenter=true&width=700&lines=Spend+Smarter.;Save+Intentionally.;Track+Every+Rupee.;Build+Better+Financial+Habits.;Master+Your+Money+with+SpenWyse." alt="Typing SVG" />
+</p>
+
 SpenWyse is a modern personal finance management application built with **React Native, Expo, Supabase, and PostgreSQL** that helps users track expenses, manage recurring commitments, control discretionary spending, and stay aligned with their financial goals.
 
 ---
+
+
+
+<p align="center">
+  <img src="assets/spenwyse_logic.png" width="100%">
+</p>
+
+
 
 ## ✨ Features
 
