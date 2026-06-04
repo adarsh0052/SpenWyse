@@ -1,6 +1,6 @@
-# 💸 SpenWyse
-
-> Spend smarter. Save intentionally.
+<h1 align="center">
+  💸 SpenWyse
+</h1>
 
 <p align="center">
   <img src="https://readme-typing-svg.demolab.com?font=Poppins&weight=700&size=26&pause=1200&color=16A34A&center=true&vCenter=true&width=900&lines=Smart+Expense+Tracking;Goal-Based+Money+Management;Real-Time+Financial+Insights;Flexible+Pool+%26+Daily+Spend+Limits;Built+with+React+Native+%2B+Supabase" />
