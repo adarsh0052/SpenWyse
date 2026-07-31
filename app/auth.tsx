@@ -10,6 +10,7 @@ import {
   Pressable,
   Platform,
   StatusBar,
+  Alert,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -46,6 +47,7 @@ export default function AuthScreen() {
         email,
         password,
         options: {
+          emailRedirectTo: 'spenwyse://auth',
           data: {
             full_name: name,
           },
@@ -57,6 +59,17 @@ export default function AuthScreen() {
         setError(error.message);
         return;
       }
+      
+      // If email confirmation is enabled, session will be null and the user needs to confirm
+      if (data.user && !data.session) {
+        Alert.alert(
+          "✉️ Check your inbox!",
+          "We sent a verification link to your email. Please confirm your email to activate your account.",
+          [{ text: "Okay", onPress: () => router.push('/login') }]
+        );
+        return;
+      }
+
       await ensureProfileExists();
       router.replace('/');
     } catch (err: any) {
