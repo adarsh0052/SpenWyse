@@ -13,52 +13,41 @@ import {
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-
 import { useOnboarding } from "../context/OnboardingContext";
 import { supabase } from "../services/supabase";
-import {calculateFinanceSnapshot} from "../services/finance";
+import { calculateFinanceSnapshot } from "../services/finance";
 
 export default function SpentThisMonthScreen() {
   const { data, updateData } = useOnboarding();
-
   const [spentThisMonth, setSpentThisMonth] = useState("");
   const [loading, setLoading] = useState(false);
-
   const spent = parseFloat(spentThisMonth) || 0;
   const utilization = spent / (data.income || 1);
   const isOverBudget = utilization > 1;
-
   const getActiveColor = () => {
-    if (utilization <= 0.4) return "#166534";
-    if (utilization <= 0.7) return "#CA8A04";
-    if (utilization <= 0.9) return "#EA580C";
-    return "#E11D48";
+    if (utilization <= 0.4) return "#166534"; 
+    if (utilization <= 0.7) return "#CA8A04"; 
+    if (utilization <= 0.9) return "#EA580C"; 
+    return "#E11D48";                         
   };
-
   const activeColor = getActiveColor();
 
-  const finance =
-  calculateFinanceSnapshot({
+  const finance = calculateFinanceSnapshot({
     income: data.income || 0,
-    commitments: 0,
+    commitments: 0, 
     spent,
   });
 
-const dailySpendLimit =
-  finance.dailySpendLimit;
+  const dailySpendLimit = finance.dailySpendLimit;
+  
   
   const handleContinue = async () => {
     if (isOverBudget || loading) return;
 
     try {
       setLoading(true);
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) return;
-
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return; 
       const { error } = await supabase
         .from("profiles")
         .update({
@@ -69,9 +58,8 @@ const dailySpendLimit =
 
       if (error) {
         console.log("Profile Update Error:", error);
-        return;
+        return; 
       }
-
       updateData({ spentThisMonth: spent });
       router.replace("/transition");
     } catch (err) {
@@ -80,6 +68,7 @@ const dailySpendLimit =
       setLoading(false);
     }
   };
+
 
   return (
     <View style={styles.container}>
@@ -91,9 +80,8 @@ const dailySpendLimit =
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
+            keyboardShouldPersistTaps="handled" 
           >
-            {/* STEPPER */}
             <View style={styles.stepperContainer}>
               {[1, 2, 3, 4].map((step) => (
                 <View
@@ -105,8 +93,6 @@ const dailySpendLimit =
                 />
               ))}
             </View>
-
-            {/* HEADER */}
             <View style={styles.headerSection}>
               <Text style={styles.heading}>
                 What's gone so far?
@@ -117,8 +103,6 @@ const dailySpendLimit =
                 is completely fine.
               </Text>
             </View>
-
-            {/* SUMMARY CARD */}
             <View
               style={[
                 styles.summaryCard,
@@ -136,7 +120,6 @@ const dailySpendLimit =
                   </Text>
                 )}
               </View>
-
               <View
                 style={[
                   styles.iconCircleLarge,
@@ -150,8 +133,6 @@ const dailySpendLimit =
                 />
               </View>
             </View>
-
-            {/* UTILIZATION BAR */}
             <View style={styles.usageContainer}>
               <View style={styles.barBackground}>
                 <View
@@ -172,7 +153,6 @@ const dailySpendLimit =
               </View>
             </View>
 
-            {/* INPUT */}
             <View style={styles.inputCard}>
               <View style={styles.cardLeft}>
                 <View style={styles.iconCircleSmall}>
@@ -196,10 +176,10 @@ const dailySpendLimit =
                 />
               </View>
             </View>
+            
             <View style={{ height: 120 }} />
           </ScrollView>
 
-          {/* CONTINUE BUTTON */}
           <View style={styles.buttonWrapper}>
             <Pressable
               style={({ pressed }) => [

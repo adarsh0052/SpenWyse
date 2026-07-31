@@ -51,13 +51,13 @@ export default function Onboarding() {
   const slidesRef = useRef<FlatList>(null);
   const router = useRouter();
   const { session } = useAuth();
+
   useEffect(() => {
     if (session) {
       router.replace('/');
     }
   }, [session]);
   
-
   const viewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     if (viewableItems.length > 0) {
       setCurrentIndex(viewableItems[0].index ?? 0);
@@ -70,7 +70,6 @@ export default function Onboarding() {
     <View style={styles.container}>
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         
-        {/* FLATLIST FOR SLIDES */}
         <FlatList
           data={SLIDES}
           renderItem={({ item }) => (
@@ -79,7 +78,7 @@ export default function Onboarding() {
                 <Image 
                   source={item.image} 
                   style={styles.image} 
-                  resizeMode="contain" 
+                  resizeMode="contain"
                 />
               </View>
               
@@ -94,15 +93,15 @@ export default function Onboarding() {
           pagingEnabled
           bounces={false}
           keyExtractor={(item) => item.id}
-          onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
-            useNativeDriver: false,
-          })}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+            { useNativeDriver: false }
+          )}
           onViewableItemsChanged={viewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
           ref={slidesRef}
         />
 
-        {/* PAGINATION DOTS */}
         <View style={styles.pagination}>
           {SLIDES.map((_, i) => {
             const dotWidth = scrollX.interpolate({
@@ -110,11 +109,13 @@ export default function Onboarding() {
               outputRange: [8, 24, 8],
               extrapolate: 'clamp',
             });
+            
             const opacity = scrollX.interpolate({
               inputRange: [(i - 1) * width, i * width, (i + 1) * width],
               outputRange: [0.3, 1, 0.3],
               extrapolate: 'clamp',
             });
+
             return (
               <Animated.View 
                 style={[styles.dot, { width: dotWidth, opacity, backgroundColor: '#166534' }]} 
@@ -124,7 +125,6 @@ export default function Onboarding() {
           })}
         </View>
 
-        {/* FOOTER ACTIONS */}
         <View style={styles.footer}>
           <TouchableOpacity 
             style={styles.button} 

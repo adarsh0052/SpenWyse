@@ -20,7 +20,6 @@ import { ensureProfileExists } from '../services/auth';
 
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
-  
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -35,56 +34,38 @@ export default function AuthScreen() {
   const handleSignUp = async () => {
     try {
       setError(null);
-  
       if (!name || !email || !password) {
         setError("Please fill in all fields to continue");
         return;
       }
-  
       if (!validateEmail(email)) {
         setError("That email doesn't look right.");
         return;
       }
-  
-      const { data, error } =
-  await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        full_name: name,
-      },
-    },
-  });
-
-console.log(
-  'SIGNUP DATA',
-  JSON.stringify(data, null, 2)
-);
-
-console.log(
-  'SIGNUP ERROR',
-  JSON.stringify(error, null, 2)
-);
-  
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: name,
+          },
+        },
+      });
+      console.log('SIGNUP DATA', JSON.stringify(data, null, 2));
+      console.log('SIGNUP ERROR', JSON.stringify(error, null, 2));
       if (error) {
         setError(error.message);
         return;
       }
-  
       await ensureProfileExists();
-
-router.replace('/');
+      router.replace('/');
     } catch (err: any) {
       setError(err.message);
     }
   };
-
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#166534" />
-
-      {/* Centered Notch Header (No Back Button) */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={styles.headerInner}>
           <View style={styles.headerSide} />
@@ -93,7 +74,7 @@ router.replace('/');
         </View>
       </View>
 
-      {/* ERROR TOAST */}
+    
       {error && (
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle" size={20} color="#E11D48" />
@@ -109,7 +90,6 @@ router.replace('/');
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* HERO SECTION */}
         <View style={styles.introSection}>
           <Text style={styles.heading}>Join SpenWyse</Text>
           <Text style={styles.subHeading}>
@@ -117,7 +97,7 @@ router.replace('/');
           </Text>
         </View>
 
-        {/* FORM */}
+
         <View style={styles.formSection}>
           <Text style={styles.label}>FULL NAME</Text>
           <TextInput
@@ -145,7 +125,7 @@ router.replace('/');
               style={styles.passwordInput}
               placeholder="••••••••"
               placeholderTextColor="#94A3B8"
-              secureTextEntry={!showPassword}
+              secureTextEntry={!showPassword} 
               value={password}
               onChangeText={setPassword}
             />
@@ -160,7 +140,6 @@ router.replace('/');
               />
             </TouchableOpacity>
           </View>
-
           <Pressable
             style={({ pressed }) => [
               styles.signUpButton,
@@ -172,14 +151,12 @@ router.replace('/');
             <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
           </Pressable>
 
-          {/* DIVIDER */}
           <View style={styles.dividerContainer}>
             <View style={styles.line} />
             <Text style={styles.orText}>OR CONTINUE WITH</Text>
             <View style={styles.line} />
           </View>
 
-          {/* GOOGLE BUTTON */}
           <Pressable
             style={({ pressed }) => [
               styles.googleButton,
@@ -198,13 +175,10 @@ router.replace('/');
               <Text style={styles.googleButtonText}>Continue with Google</Text>
             </View>
           </Pressable>
-
           <Text style={styles.termsText}>
             By continuing, you agree to our Terms & Privacy Policy.
           </Text>
         </View>
-
-        {/* FOOTER */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>Already have an account? </Text>
           <TouchableOpacity onPress={() => router.push("/login")}>

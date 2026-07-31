@@ -32,7 +32,6 @@ export default function TabLayout() {
         }}
       />
 
-      {/* THE PUFFED FAB */}
       <Tabs.Screen
         name="add"
         options={{
@@ -66,17 +65,15 @@ export default function TabLayout() {
     </Tabs>
   );
 }
-
 const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
-    height: Platform.OS === 'ios' ? 88 : 70, // Standard height + safe area for iOS
+    height: Platform.OS === 'ios' ? 88 : 70, 
     paddingBottom: Platform.OS === 'ios' ? 25 : 10,
     paddingTop: 10,
-    position: 'absolute', // Still absolute to allow the FAB to "pop" out of bounds
-    bottom: 0,
+    position: 'absolute', 
     left: 0,
     right: 0,
     elevation: 20,
@@ -86,24 +83,23 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
   },
   fabWrapper: {
-    top: -15, // This "puffs" the button out above the bar line
+    top: -15, 
     justifyContent: 'center',
     alignItems: 'center',
   },
   fab: {
     width: 60,
     height: 60,
-    borderRadius: 30, // Circular for that classic puffed feel
+    borderRadius: 30, 
     backgroundColor: '#166534',
     justifyContent: 'center',
     alignItems: 'center',
-    // The "Slight Glow" Effect
     shadowColor: '#166534',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
-    elevation: 8, // Android glow/shadow
+    elevation: 8, 
     borderWidth: 4,
-    borderColor: '#FFFFFF', // Adds a "cutout" look against the bar
+    borderColor: '#FFFFFF', 
   },
 });

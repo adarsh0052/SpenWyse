@@ -15,8 +15,6 @@ import { PieChart } from 'react-native-gifted-charts';
 import { supabase } from '../../services/supabase';
 import { calculateFinanceSnapshot } from '../../services/finance';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const { width } = Dimensions.get('window');
 
 const HORIZONTAL_PADDING = 20;
@@ -24,6 +22,7 @@ const CARD_PADDING = 16;
 const COLS = 9;
 const CELL_GAP = 5;
 const AVAILABLE_WIDTH = width - (HORIZONTAL_PADDING * 2) - (CARD_PADDING * 2);
+
 const CELL_SIZE = Math.floor((AVAILABLE_WIDTH - (CELL_GAP * (COLS - 1))) / COLS);
 const CELL_RADIUS = CELL_SIZE / 2;
 
@@ -35,8 +34,6 @@ const CATEGORIES = [
   { name: 'Health', color: '#0EA5E9' },
   { name: 'Others', color: '#64748B' },
 ];
-
-// ─── Streak Card ──────────────────────────────────────────────────────────────
 
 function StreakCard({
   streak,
@@ -87,17 +84,15 @@ function StreakCard({
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
-
 export default function Analytics() {
   const insets = useSafeAreaInsets();
+  
   const [profile, setProfile] = useState<any>(null);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [allocations, setAllocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
-
-  // ─── Data Fetching ─────────────────────────────────────────────────────────
 
   const fetchAnalytics = async () => {
     try {
@@ -129,10 +124,9 @@ export default function Analytics() {
     }, [])
   );
 
-  // ─── Derived Values ────────────────────────────────────────────────────────
-
   const profileLoaded = !loading && profile != null;
   const totalSpent = profile?.current_month_spent || 0;
+  
   const totalAllocated = allocations.reduce((sum, item) => sum + item.amount, 0);
 
   const finance = calculateFinanceSnapshot({
@@ -155,8 +149,6 @@ export default function Analytics() {
     })
     .reduce((sum, item) => sum + item.amount, 0);
 
-  // ─── Heatmap / Calendar Data ───────────────────────────────────────────────
-
   const currentDate = new Date();
   const currentDay = currentDate.getDate();
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
@@ -167,6 +159,7 @@ export default function Analytics() {
   expenses.forEach(expense => {
     const day = new Date(expense.expense_date).getDate();
     dailySpendMap[day] = (dailySpendMap[day] || 0) + expense.amount;
+    
     if (expense.is_recurring) {
       dailyRecurringMap[day] = (dailyRecurringMap[day] || 0) + expense.amount;
     }
@@ -178,11 +171,10 @@ export default function Analytics() {
     return '#EF4444';
   };
 
-  // ─── Streak Logic ──────────────────────────────────────────────────────────
-
   let currentStreak = 0;
   if (profileLoaded && dailyLimit > 0) {
     const profileCreatedDate = new Date(profile.created_at);
+    
     const startDay =
       profileCreatedDate.getMonth() === currentDate.getMonth() &&
       profileCreatedDate.getFullYear() === currentDate.getFullYear()
@@ -197,14 +189,12 @@ export default function Analytics() {
       if (flexibleForDay <= dailyLimit) {
         currentStreak++;
       } else {
-        break;
+        break; 
       }
     }
   }
 
   const totalCells = Math.ceil(daysInMonth / COLS) * COLS;
-
-  // ─── Category Breakdown ────────────────────────────────────────────────────
 
   const currentMonthExpenses = expenses.filter(expense => {
     const expenseDate = new Date(expense.expense_date);
@@ -232,23 +222,18 @@ export default function Analytics() {
 
   const pieData = categoryBreakdown.map(({ rawAmount: value, color }) => ({ value, color }));
 
-  // ─── Summary Stats ─────────────────────────────────────────────────────────
-
   const summaryStats = [
     { label: 'Total Spent', value: `₹${totalSpent.toLocaleString()}`, highlight: true, fullWidth: true },
-    { label: 'Allocations', value: `₹${totalAllocated.toLocaleString()}`, highlight: false, fullWidth: false },
+    { label: 'Locker', value: `₹${totalAllocated.toLocaleString()}`, highlight: false, fullWidth: false },
     { label: 'Remaining', value: `₹${finance.flexiblePool.toLocaleString()}`, highlight: false, fullWidth: false },
     { label: 'Daily Spend Limit', value: `₹${finance.dailySpendLimit.toLocaleString()}`, highlight: false, fullWidth: false },
     { label: 'Bills', value: `₹${recurringSpend.toLocaleString()}`, highlight: false, fullWidth: false },
   ];
 
-  // ─── Render ────────────────────────────────────────────────────────────────
-
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#166534" />
       
-      {/* Centered Notch Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={styles.headerInner}>
           <View style={styles.headerSide} />
@@ -263,7 +248,6 @@ export default function Analytics() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
-        {/* Summary Stats Grid */}
         <View style={styles.statsGrid}>
           {summaryStats.map((stat, i) => (
             <View
@@ -282,7 +266,6 @@ export default function Analytics() {
           ))}
         </View>
 
-        {/* Spending Activity — Calendar Heatmap */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Spending Activity</Text>
 
@@ -294,8 +277,10 @@ export default function Analytics() {
                   const isValid = day >= 1 && day <= daysInMonth;
                   const isFuture = isValid && day > currentDay;
                   const isToday = isValid && day === currentDay;
+                  
                   const amount = isValid ? (dailySpendMap[day] || 0) : 0;
                   const recurringAmount = isValid ? (dailyRecurringMap[day] || 0) : 0;
+                  
                   const isSelected = selectedDay === day && isValid;
                   const bgColor = isFuture ? '#F1F5F9' : getIntensity(amount, recurringAmount);
                   const textColor = (amount === 0 || isFuture) ? '#94A3B8' : '#FFFFFF';
@@ -337,6 +322,7 @@ export default function Analytics() {
               const selRecurring = dailyRecurringMap[selectedDay] || 0;
               const selFlexible = selTotal - selRecurring;
               const overLimit = selFlexible > dailyLimit;
+              
               return (
                 <View style={styles.tooltipRow}>
                   <Text style={styles.tooltipDate}>
@@ -372,7 +358,6 @@ export default function Analytics() {
           />
         </View>
 
-        {/* Category Breakdown */}
         <View style={[styles.sectionContainer, { marginTop: 16 }]}>
           <Text style={styles.sectionTitle}>Category Breakdown</Text>
           

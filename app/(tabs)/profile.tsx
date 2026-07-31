@@ -19,22 +19,21 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
 import { supabase } from '../../services/supabase';
 
-// ─── Reusable Menu Row ────────────────────────────────────────────────────────
 interface MenuItemProps {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: keyof typeof Ionicons.glyphMap; 
   label: string;
-  isLast?: boolean;
-  isDestructive?: boolean;
+  isLast?: boolean; 
+  isDestructive?: boolean; 
   onPress?: () => void;
-  rightLabel?: string;
+  rightLabel?: string; 
 }
 
 const MenuRow = ({ icon, label, isLast, isDestructive, onPress, rightLabel }: MenuItemProps) => (
   <Pressable
     style={({ pressed }) => [
       styles.menuRow,
-      !isLast && styles.menuRowBorder,
-      pressed && styles.menuRowPressed,
+      !isLast && styles.menuRowBorder, 
+      pressed && styles.menuRowPressed, 
     ]}
     onPress={onPress}
   >
@@ -53,11 +52,10 @@ const MenuRow = ({ icon, label, isLast, isDestructive, onPress, rightLabel }: Me
   </Pressable>
 );
 
-// ─── Edit Income Modal ────────────────────────────────────────────────────────
 interface EditIncomeModalProps {
   visible: boolean;
   currentIncome: number;
-  currentMonthSpent: number;
+  currentMonthSpent: number; 
   onClose: () => void;
   onSave: (newIncome: number) => Promise<void>;
 }
@@ -82,20 +80,23 @@ const EditIncomeModal = ({
 
   const handleSave = async () => {
     const parsed = parseFloat(value.replace(/,/g, ''));
+    
     if (isNaN(parsed) || parsed <= 0) {
       setError('Please enter a valid income amount.');
       return;
     }
+    
     if (parsed < currentMonthSpent) {
       setError(
         `Income cannot be less than your current month's expenses (₹${currentMonthSpent.toLocaleString()}).`
       );
       return;
     }
+    
     setSaving(true);
     try {
-      await onSave(parsed);
-      onClose();
+      await onSave(parsed); 
+      onClose(); 
     } catch {
       setError('Failed to update income. Please try again.');
     } finally {
@@ -125,12 +126,12 @@ const EditIncomeModal = ({
               value={value}
               onChangeText={(t) => {
                 setValue(t);
-                setError('');
+                setError(''); 
               }}
               keyboardType="numeric"
               placeholder="0"
               placeholderTextColor="#CBD5E1"
-              autoFocus
+              autoFocus 
             />
           </View>
 
@@ -159,7 +160,6 @@ const EditIncomeModal = ({
   );
 };
 
-// ─── Logout Confirmation Modal ────────────────────────────────────────────────
 interface LogoutModalProps {
   visible: boolean;
   onClose: () => void;
@@ -208,9 +208,9 @@ const LogoutModal = ({ visible, onClose, onConfirm }: LogoutModalProps) => {
   );
 };
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function Profile() {
-  const insets = useSafeAreaInsets();
+  const insets = useSafeAreaInsets(); 
+  
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showEditIncome, setShowEditIncome] = useState(false);
@@ -249,7 +249,6 @@ export default function Profile() {
 
     if (error) throw error;
 
-    // Optimistically update local state so rest of app re-reads on focus
     setProfile((prev: any) => ({ ...prev, monthly_income: newIncome }));
   };
 
@@ -259,7 +258,7 @@ export default function Profile() {
       Alert.alert('Error', 'Failed to log out. Please try again.');
       return;
     }
-    router.replace('/onboarding'); // adjust route to your auth screen
+    router.replace('/onboarding');
   };
 
   const initials = profile?.full_name
@@ -270,7 +269,6 @@ export default function Profile() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#166534" />
       
-      {/* Centered Notch Header with Settings Icon */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={styles.headerInner}>
           <View style={styles.headerSide} /> 
@@ -285,35 +283,22 @@ export default function Profile() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
-        {/* UPGRADED USER HERO CARD */}
         <View style={styles.userHeroWrapper}>
           <LinearGradient colors={['#F0FDF4', '#DCFCE7']} style={styles.userHeroGradient}>
-            {/* Decorative Background Elements */}
             <View style={styles.textureCircle1} />
             <View style={styles.textureCircle2} />
-
             <View style={styles.userContentZIndex}>
               <View style={styles.avatarContainer}>
                 <View style={styles.avatar}>
                   <Text style={styles.avatarText}>{initials}</Text>
                 </View>
-                <View style={styles.verifiedBadge}>
-                  <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                </View>
-              </View>
-              
+              </View> 
               <Text style={styles.userName}>{profile?.full_name || 'User'}</Text>
               <Text style={styles.userEmail}>{profile?.email || 'Loading...'}</Text>
-              
-              <View style={styles.userBadgeChip}>
-                <Ionicons name="shield-checkmark" size={14} color="#166534" />
-                <Text style={styles.userBadgeText}>Verified Account</Text>
-              </View>
             </View>
           </LinearGradient>
         </View>
 
-        {/* FINANCES SECTION */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Finances</Text>
         </View>
@@ -345,7 +330,6 @@ export default function Profile() {
           </View>
         </View>
 
-        {/* ACCOUNT PREFERENCES SECTION (Visual filler to look better) */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Preferences</Text>
         </View>
@@ -356,13 +340,12 @@ export default function Profile() {
           <MenuRow icon="help-circle-outline" label="Help & Support" isLast />
         </View>
 
-        {/* LOG OUT */}
         <View style={[styles.menuCard, { marginTop: 12 }]}>
           <MenuRow
             icon="log-out-outline"
             label="Log Out"
             isLast
-            isDestructive
+            isDestructive 
             onPress={() => setShowLogout(true)}
           />
         </View>
@@ -374,7 +357,6 @@ export default function Profile() {
         <View style={{ height: 120 }} />
       </ScrollView>
 
-      {/* MODALS */}
       <EditIncomeModal
         visible={showEditIncome}
         currentIncome={profile?.monthly_income || 0}

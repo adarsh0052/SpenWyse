@@ -16,6 +16,7 @@ import Animated, { FadeInUp, FadeIn } from 'react-native-reanimated';
 import { supabase } from '../../services/supabase';
 
 const { width } = Dimensions.get('window');
+
 const INITIAL_FLEX_POOL = 8200;
 
 const CATEGORIES = [
@@ -31,13 +32,13 @@ export default function AddExpenseScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+
   const [screenState, setScreenState] = useState<'typing' | 'success'>('typing');
   const [amount, setAmount] = useState('0');
   const [selectedCat, setSelectedCat] = useState('1');
   const [isRecurring, setIsRecurring] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Dynamically hide the bottom tab bar when this screen is focused
   useFocusEffect(
     useCallback(() => {
       setScreenState('typing');
@@ -50,7 +51,7 @@ export default function AddExpenseScreen() {
 
       return () => {
         parent?.setOptions({
-          tabBarStyle: { display: 'flex' }, // or your original tab bar style
+          tabBarStyle: { display: 'flex' },
         });
       };
     }, [navigation])
@@ -74,9 +75,8 @@ export default function AddExpenseScreen() {
       setSaving(true);
 
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) return; 
 
-      /* INSERT EXPENSE */
       const { error: expenseError } = await supabase
         .from('expenses')
         .insert({
@@ -89,10 +89,9 @@ export default function AddExpenseScreen() {
 
       if (expenseError) {
         console.log(expenseError);
-        return;
+        return; 
       }
 
-      /* FETCH PROFILE */
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -101,12 +100,10 @@ export default function AddExpenseScreen() {
 
       if (profileError || !profile) {
         console.log(profileError);
-        return;
+        return; 
       }
 
-      /* UPDATE SPENT */
       const updatedSpent = profile.current_month_spent + numericAmount;
-
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ current_month_spent: updatedSpent })
@@ -114,7 +111,7 @@ export default function AddExpenseScreen() {
 
       if (updateError) {
         console.log(updateError);
-        return;
+        return; 
       }
 
       setScreenState('success');
@@ -129,7 +126,7 @@ export default function AddExpenseScreen() {
     return (
       <Animated.View entering={FadeIn.duration(500)} style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        {/* Ensures the tab bar stays hidden on the success screen too */}
+        
         <Tabs.Screen options={{ tabBarStyle: { display: 'none' } }} />
         
         <View style={styles.successContent}>
@@ -139,6 +136,7 @@ export default function AddExpenseScreen() {
           <Text style={styles.successTitle}>Transaction Logged</Text>
           <Text style={styles.successSub}>₹{amount} successfully recorded.</Text>
         </View>
+        
         <View style={[styles.bottomCtaContainer, { paddingBottom: insets.bottom + 20 }]}>
           <Pressable style={styles.primaryBtn} onPress={() => router.replace('/(tabs)')}>
             <Text style={styles.primaryBtnText}>View Dashboard</Text>
@@ -155,10 +153,8 @@ export default function AddExpenseScreen() {
     >
       <StatusBar barStyle="light-content" backgroundColor="#166534" />
       
-      {/* Declaratively hide the tab bar just in case */}
       <Tabs.Screen options={{ tabBarStyle: { display: 'none' } }} />
       
-      {/* Centered Notch Header with Close Icon */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={styles.headerInner}>
           <View style={styles.headerSide} /> 
@@ -173,13 +169,14 @@ export default function AddExpenseScreen() {
 
       <Animated.View entering={FadeInUp.springify()} style={styles.body}>
         <View style={styles.topSection}>
-          {/* Amount Display */}
+          
           <View style={styles.amountDisplay}>
             <Text style={styles.currencyPrefix}>₹</Text>
             <Text style={[styles.amountTextLarge, isOverBudget && { color: '#E11D48' }]}>
               {amount}
             </Text>
           </View>
+          
           {isOverBudget && (
             <View style={styles.errorBox}>
               <Ionicons name="alert-circle" size={14} color="#E11D48" />
@@ -187,7 +184,6 @@ export default function AddExpenseScreen() {
             </View>
           )}
 
-          {/* Category Grid */}
           <View style={styles.catGrid}>
             {CATEGORIES.map((cat) => (
               <Pressable 
@@ -211,7 +207,6 @@ export default function AddExpenseScreen() {
           </View>
         </View>
 
-        {/* Numpad & Actions */}
         <View style={[styles.bottomSection, { paddingBottom: insets.bottom > 0 ? insets.bottom + 10 : 30 }]}>
           
           <Pressable

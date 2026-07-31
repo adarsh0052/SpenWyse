@@ -3,11 +3,8 @@ import { View, Text, StyleSheet, Animated } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import LottieView from "lottie-react-native";
-// import { useOnboarding } from "../context/OnboardingContext";
-// import { supabase } from '../services/supabase';
 
 export default function TransitionScreen() {
-  // const { data } = useOnboarding();
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -39,7 +36,7 @@ export default function TransitionScreen() {
             style={styles.lottie}
             colorFilters={[
               {
-                keypath: "GreenLayer", 
+                keypath: "GreenLayer",
                 color: "#166534", 
               },
               {
@@ -57,7 +54,6 @@ export default function TransitionScreen() {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFFFFF" },
   content: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },

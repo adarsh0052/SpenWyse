@@ -13,29 +13,26 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useOnboarding } from "../context/OnboardingContext";
-import {supabase} from "../services/supabase";
+import { supabase } from "../services/supabase";
 
 export default function IncomeScreen() {
   const { data, updateData } = useOnboarding();
   const [primaryIncome, setPrimaryIncome] = useState("");
   const [secondaryIncome, setSecondaryIncome] = useState("");
-  const [loading, setLoading] = useState(false);
-
+  const [loading, setLoading] = useState(false); 
   const isStudent = data.userType === 'student';
   const total = (parseFloat(primaryIncome) || 0) + (parseFloat(secondaryIncome) || 0);
 
   const handleContinue = async () => {
     try {
-      setLoading(true);
-  
+      setLoading(true); 
       const {
         data: { user },
       } = await supabase.auth.getUser();
   
       if (!user) {
         console.log("No authenticated user");
-  
-        return;
+        return; 
       }
   
       const { error } = await supabase
@@ -46,25 +43,20 @@ export default function IncomeScreen() {
         .eq("id", user.id);
   
       if (error) {
-        console.log(
-          "Income Update Error:",
-          error
-        );
-  
-        return;
+        console.log("Income Update Error:", error);
+        return; 
       }
-  
       updateData({
         income: total,
       });
-  
       router.push("/currmonthspent");
     } catch (err) {
       console.log(err);
     } finally {
-      setLoading(false);
+  setLoading(false); 
     }
   };
+
 
   return (
     <View style={styles.container}>
@@ -78,7 +70,6 @@ export default function IncomeScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* 1. PROGRESS STEPPER */}
             <View style={styles.stepperContainer}>
               {[1, 2, 3, 4].map((step) => (
                 <View 
@@ -88,7 +79,6 @@ export default function IncomeScreen() {
               ))}
             </View>
 
-            {/* 2. HEADER */}
             <View style={styles.headerSection}>
               <Text style={styles.heading}>{isStudent ? "Monthly Allowance" : "Monthly Salary"}</Text>
               <Text style={styles.subHeading}>
@@ -98,7 +88,6 @@ export default function IncomeScreen() {
               </Text>
             </View>
 
-            {/* 3. DYNAMIC SUMMARY CARD */}
             <View style={styles.summaryCard}>
               <View style={styles.summaryInfo}>
                 <Text style={styles.summaryLabel}>TOTAL MONTHLY INFLOW</Text>
@@ -111,7 +100,7 @@ export default function IncomeScreen() {
 
             <Text style={styles.sectionLabel}>BREAKDOWN</Text>
 
-            {/* 4. INPUT GROUP 1 */}
+         
             <View style={styles.inputCard}>
               <Text style={styles.inputLabel}>{isStudent ? "Primary Allowance" : "Base Take-home Pay"}</Text>
               <View style={styles.inputWrapper}>
@@ -119,15 +108,13 @@ export default function IncomeScreen() {
                 <TextInput
                   placeholder="0"
                   placeholderTextColor="#CBD5E1"
-                  keyboardType="numeric"
+                  keyboardType="numeric" 
                   style={styles.input}
                   value={primaryIncome}
                   onChangeText={setPrimaryIncome}
                 />
               </View>
             </View>
-
-            {/* 5. INPUT GROUP 2 */}
             <View style={styles.inputCard}>
               <Text style={styles.inputLabel}>{isStudent ? "Other (Gifts/Side Hustle)" : "Bonus / Variable Income"}</Text>
               <View style={styles.inputWrapper}>
@@ -142,12 +129,8 @@ export default function IncomeScreen() {
                 />
               </View>
             </View>
-
-            {/* SPACER FOR BUTTON */}
             <View style={{ height: 120 }} />
           </ScrollView>
-
-          {/* 6. FIXED BOTTOM ACTION */}
           <View style={styles.buttonWrapper}>
             <Pressable
               style={({ pressed }) => [
@@ -159,10 +142,8 @@ export default function IncomeScreen() {
               disabled={!primaryIncome || loading}
             >
               <Text style={styles.buttonText}>
-  {loading
-    ? "Saving..."
-    : "Continue to Layout"}
-</Text>
+                {loading ? "Saving..." : "Continue to Layout"}
+              </Text>
               <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
             </Pressable>
           </View>
@@ -172,7 +153,6 @@ export default function IncomeScreen() {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8FAFC" },
   scrollContent: { paddingHorizontal: 30, paddingTop: 10 },

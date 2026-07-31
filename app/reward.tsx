@@ -14,8 +14,6 @@ export default function RewardScreen() {
   const [snapshot, setSnapshot] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-
-
   useEffect(() => {
     fetchSnapshot();
   }, []);
@@ -39,10 +37,7 @@ export default function RewardScreen() {
         .maybeSingle();
 
       if (error) {
-        console.log(
-          "SNAPSHOT FETCH ERROR",
-          error
-        );
+        console.log("SNAPSHOT FETCH ERROR", error);
         return;
       }
 
@@ -103,11 +98,11 @@ export default function RewardScreen() {
 
         {snapshot && (
           <View style={styles.statsContainer}>
+            
             <View style={styles.statCard}>
               <Text style={styles.statLabel}>
                 Monthly Income
               </Text>
-
               <Text style={styles.statValue}>
                 ₹{Number(snapshot.income).toLocaleString()}
               </Text>
@@ -117,7 +112,6 @@ export default function RewardScreen() {
               <Text style={styles.statLabel}>
                 Total Spent
               </Text>
-
               <Text style={styles.statValue}>
                 ₹{Number(snapshot.spent).toLocaleString()}
               </Text>
@@ -127,7 +121,6 @@ export default function RewardScreen() {
               <Text style={styles.statLabel}>
                 Locked Amount
               </Text>
-
               <Text style={styles.statValue}>
                 ₹{Number(snapshot.locked).toLocaleString()}
               </Text>
@@ -137,11 +130,11 @@ export default function RewardScreen() {
               <Text style={styles.statLabel}>
                 Total Saved
               </Text>
-
               <Text style={styles.savedValue}>
                 ₹{Number(snapshot.saved).toLocaleString()}
               </Text>
             </View>
+
           </View>
         )}
 
@@ -157,7 +150,6 @@ export default function RewardScreen() {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,

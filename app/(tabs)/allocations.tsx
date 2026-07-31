@@ -15,6 +15,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+
 import { supabase } from '../../services/supabase';
 import { calculateFinanceSnapshot } from '../../services/finance';
 
@@ -32,27 +33,27 @@ interface Profile {
 }
 
 export default function Allocations() {
-  const insets = useSafeAreaInsets();
+  const insets = useSafeAreaInsets(); 
 
-  // ── State ──────────────────────────────────────────────────────────────────
   const [viewState, setViewState] = useState<ViewState>('overview');
+  
   const [profile, setProfile] = useState<Profile | null>(null);
   const [activeAllocations, setActiveAllocations] = useState<Allocation[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); 
 
-  // Form
   const [newTitle, setNewTitle] = useState('');
   const [newAmount, setNewAmount] = useState('');
+  
   const [releaseAmount, setReleaseAmount] = useState('');
   const [isReleaseAll, setIsReleaseAll] = useState(false);
+  
   const [targetGoalId, setTargetGoalId] = useState<string | null>(null);
 
-  // Modal
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
 
-  // ── Derived ────────────────────────────────────────────────────────────────
   const totalAllocated = activeAllocations.reduce((sum, a) => sum + a.amount, 0);
+  
   const finance = calculateFinanceSnapshot({
     income: profile?.monthly_income ?? 0,
     spent: profile?.current_month_spent ?? 0,
@@ -66,23 +67,20 @@ export default function Allocations() {
 
   const parsedAmount = parseInt(newAmount) || 0;
   const parsedReleaseAmount = parseInt(releaseAmount) || 0;
+  
   const safeAllocation = Math.max(0, Math.min(parsedAmount, flexiblePool));
   const safeRelease = Math.max(0, Math.min(parsedReleaseAmount, targetGoal?.amount ?? 0));
 
   const projectedPool = flexiblePool - safeAllocation;
   const projectedPoolAfterRelease = flexiblePool + safeRelease;
 
-  // ── Data Fetching ──────────────────────────────────────────────────────────
   useEffect(() => {
     fetchData();
   }, []);
 
   const fetchData = async () => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data: profileData } = await supabase
@@ -101,11 +99,10 @@ export default function Allocations() {
     } catch (err) {
       console.error('fetchData error:', err);
     } finally {
-      setLoading(false);
+      setLoading(false); 
     }
   };
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
   const resetForm = () => {
     setNewTitle('');
     setNewAmount('');
@@ -114,12 +111,7 @@ export default function Allocations() {
     setTargetGoalId(null);
   };
 
-  /**
-   * After any mutation: re-fetch data so we know the real new flexiblePool,
-   * update the profile's daily_spend_limit in the DB, then show the modal.
-   */
   const finaliseAndShowSuccess = async (userId: string) => {
-    // Re-fetch so totals are accurate
     const { data: updatedProfile } = await supabase
       .from('profiles')
       .select('monthly_income, current_month_spent')
@@ -153,16 +145,11 @@ export default function Allocations() {
     resetForm();
   };
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
-
-  // CREATE
   const handleConfirmNewAllocation = async () => {
     try {
       if (!newTitle.trim() || safeAllocation <= 0) return;
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data, error } = await supabase
@@ -170,7 +157,7 @@ export default function Allocations() {
         .insert({
           user_id: user.id,
           title: newTitle.trim(),
-          amount: safeAllocation,
+          amount: safeAllocation, 
         })
         .select();
 
@@ -178,26 +165,24 @@ export default function Allocations() {
         console.error('INSERT ERROR:', error);
         return;
       }
+      
       await finaliseAndShowSuccess(user.id);
     } catch (err) {
       console.error('handleConfirmNewAllocation error:', err);
     }
   };
 
-  // ADD FUNDS
   const handleInitAddFunds = (id: string) => {
     setTargetGoalId(id);
     setNewAmount('');
-    setViewState('adding');
+    setViewState('adding'); 
   };
 
   const handleConfirmAddFunds = async () => {
     try {
       if (!targetGoalId || safeAllocation <= 0 || !targetGoal) return;
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const { error } = await supabase
@@ -216,7 +201,6 @@ export default function Allocations() {
     }
   };
 
-  // RELEASE
   const handleInitRelease = (id: string) => {
     setTargetGoalId(id);
     setReleaseAmount('');
@@ -244,9 +228,7 @@ export default function Allocations() {
     try {
       if (!targetGoalId || !targetGoal || safeRelease <= 0) return;
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const remaining = targetGoal.amount - safeRelease;
@@ -271,7 +253,6 @@ export default function Allocations() {
     }
   };
 
-  // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -281,7 +262,6 @@ export default function Allocations() {
     );
   }
 
-  // ── RENDER: RELEASE ────────────────────────────────────────────────────────
   if (viewState === 'releasing' && targetGoal) {
     return (
       <KeyboardAvoidingView
@@ -378,7 +358,6 @@ export default function Allocations() {
     );
   }
 
-  // ── RENDER: ADD FUNDS ──────────────────────────────────────────────────────
   if (viewState === 'adding' && targetGoal) {
     const allocationPercent =
       flexiblePool > 0 ? Math.min((safeAllocation / flexiblePool) * 100, 100) : 0;
@@ -461,10 +440,10 @@ export default function Allocations() {
     );
   }
 
-  // ── RENDER: CREATE ─────────────────────────────────────────────────────────
   if (viewState === 'creating') {
     const allocationPercent =
       flexiblePool > 0 ? Math.min((safeAllocation / flexiblePool) * 100, 100) : 0;
+    
     const canConfirm = newTitle.trim().length > 0 && safeAllocation > 0;
 
     return (
@@ -489,7 +468,6 @@ export default function Allocations() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ padding: 25, paddingBottom: 120 }}
         >
-          {/* Pool indicator */}
           <View style={styles.poolIndicatorRow}>
             <Ionicons name="water-outline" size={16} color="#166534" />
             <Text style={styles.poolIndicatorText}>
@@ -552,12 +530,10 @@ export default function Allocations() {
     );
   }
 
-  // ── RENDER: OVERVIEW ───────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#166534" />
       
-      {/* Centered Notch Header with Locker Icon */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={styles.headerInner}>
           <View style={styles.headerSide} /> 
@@ -574,7 +550,6 @@ export default function Allocations() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* ── POOL HERO ── */}
         <View style={styles.poolWrapper}>
           <LinearGradient colors={['#F0FDF4', '#DCFCE7']} style={styles.lightPoolHero}>
             <View style={styles.textureCircle1} />
@@ -594,7 +569,6 @@ export default function Allocations() {
                 <Text style={styles.poolAmountLight}>{flexiblePool.toLocaleString()}</Text>
               </View>
 
-              {/* Enhanced Quick Stats */}
               <View style={styles.poolStatsRow}>
                 <View style={styles.poolStatChip}>
                   <Ionicons name="lock-closed-outline" size={14} color="#64748B" />
@@ -619,12 +593,11 @@ export default function Allocations() {
           </LinearGradient>
         </View>
 
-        {/* ── ACTIVE GOALS ── */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Active Goals</Text>
           <Pressable
             style={styles.newGoalBtn}
-            onPress={() => setViewState('creating')}
+            onPress={() => setViewState('creating')} 
           >
             <Ionicons name="add" size={16} color="#FFFFFF" />
             <Text style={styles.newGoalBtnText}>New Goal</Text>
@@ -632,7 +605,6 @@ export default function Allocations() {
         </View>
 
         {activeAllocations.length === 0 ? (
-          /* ── EMPTY STATE ── */
           <View style={styles.emptyStateWrapper}>
             <LinearGradient
               colors={['#F8FAFC', '#F0FDF4']}
@@ -681,22 +653,21 @@ export default function Allocations() {
 
               <View style={styles.vaultBottom}>
                 <View style={styles.vaultStatusPill}>
-                  <Ionicons name="shield-checkmark" size={12} color="#16A34A" />
-                  <Text style={styles.lockedText}>Secured</Text>
+                  <Text style={styles.lockedText}>LOCKED</Text>
                 </View>
                 <View style={styles.actionRow}>
                   <Pressable
                     style={styles.actionBtnRelease}
                     onPress={() => handleInitRelease(item.id)}
                   >
-                    <Text style={styles.actionBtnTextRelease}>Release</Text>
+                    <Text style={styles.actionBtnTextRelease}>Withdraw</Text>
                   </Pressable>
                   <Pressable
                     style={styles.actionBtnAdd}
                     onPress={() => handleInitAddFunds(item.id)}
                   >
                     <Ionicons name="add" size={14} color="#FFFFFF" />
-                    <Text style={styles.actionBtnTextAdd}>Top Up</Text>
+                    <Text style={styles.actionBtnTextAdd}>Add Money</Text>
                   </Pressable>
                 </View>
               </View>
@@ -707,7 +678,6 @@ export default function Allocations() {
         <View style={{ height: 120 }} />
       </ScrollView>
 
-      {/* ── SUCCESS MODAL ── */}
       <Modal visible={showSuccessModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>

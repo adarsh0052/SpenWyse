@@ -20,7 +20,6 @@ import { ensureProfileExists } from '../services/auth';
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
-
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,35 +28,30 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     try {
       setError(null);
-  
       if (!email || !password) {
         setError("Please fill in all fields to continue");
         return;
       }
-  
-      const { error } =
-        await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
   
       if (error) {
         setError(error.message);
         return;
       }
-  
       await ensureProfileExists();
-  
       router.replace('/');
     } catch (err: any) {
       setError(err.message);
     }
   };
+
+ 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#166534" />
-
-      {/* Centered Notch Header (No Back Button) */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={styles.headerInner}>
           <View style={styles.headerSide} />
@@ -66,7 +60,6 @@ export default function LoginScreen() {
         </View>
       </View>
 
-      {/* ERROR TOAST */}
       {error && (
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle" size={20} color="#E11D48" />
@@ -82,13 +75,11 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* HERO SECTION */}
         <View style={styles.introSection}>
           <Text style={styles.heading}>Welcome Back</Text>
           <Text style={styles.subHeading}>Sign in to resume your optimized spending journey.</Text>
         </View>
 
-        {/* FORM */}
         <View style={styles.formSection}>
           <Text style={styles.label}>EMAIL ADDRESS</Text>
           <TextInput
@@ -96,7 +87,7 @@ export default function LoginScreen() {
             placeholder="name@example.com"
             placeholderTextColor="#94A3B8"
             keyboardType="email-address"
-            autoCapitalize="none"
+            autoCapitalize="none" 
             value={email}
             onChangeText={setEmail}
           />
@@ -107,7 +98,7 @@ export default function LoginScreen() {
               style={styles.passwordInput}
               placeholder="••••••••"
               placeholderTextColor="#94A3B8"
-              secureTextEntry={!showPassword}
+              secureTextEntry={!showPassword} 
               value={password}
               onChangeText={setPassword}
             />
@@ -115,7 +106,6 @@ export default function LoginScreen() {
               <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={22} color="#94A3B8" />
             </TouchableOpacity>
           </View>
-
           <TouchableOpacity 
             onPress={() => console.log("Navigate to Forgot Password")} 
             style={styles.forgotPassword}
@@ -133,15 +123,12 @@ export default function LoginScreen() {
             <Text style={styles.loginText}>Sign In</Text>
             <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
           </Pressable>
-
-          {/* DIVIDER */}
           <View style={styles.dividerContainer}>
             <View style={styles.line} />
             <Text style={styles.orText}>OR LOGIN WITH</Text>
             <View style={styles.line} />
           </View>
 
-          {/* GOOGLE BUTTON */}
           <Pressable 
             style={({ pressed }) => [
               styles.googleButton,
@@ -159,7 +146,6 @@ export default function LoginScreen() {
           </Pressable>
         </View>
 
-        {/* FOOTER */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>New to SpenWyse? </Text>
           <TouchableOpacity onPress={() => router.push("/auth")}>
@@ -170,11 +156,9 @@ export default function LoginScreen() {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFFFFF" },
 
-  // Header Matching Global Design
   header: { 
     backgroundColor: '#166534', 
     paddingBottom: 20, 

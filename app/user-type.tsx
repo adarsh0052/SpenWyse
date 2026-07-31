@@ -3,12 +3,15 @@ import { Pressable, StyleSheet, Text, View, Platform } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+
 import { useOnboarding } from "../context/OnboardingContext";
 import { supabase } from "../services/supabase";
 
-
 export default function UserTypeScreen() {
   const [selectedType, setSelectedType] = useState<"student" | "employee" | null>(null);
+  
+  const [loading, setLoading] = useState(false);
+  
   const { updateData } = useOnboarding();
 
   const handleSelect = (choice: 'student' | 'employee') => {
@@ -16,61 +19,58 @@ export default function UserTypeScreen() {
     updateData({ userType: choice });
   };
 
-  const [loading, setLoading] = useState(false);
-
-const handleContinue = async () => {
-  if (!selectedType) return;
+  const handleContinue = async () => {
+    if (!selectedType) return;
+    
     try {
-    setLoading(true);
+      setLoading(true);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    if (!user) {
-      console.log("No authenticated user");
+      if (!user) {
+        console.log("No authenticated user");
+        return;
+      }
 
-      return;
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          user_type: selectedType,
+        })
+        .eq("id", user.id);
+
+      if (error) {
+        console.log("Profile Update Error:", error);
+        return;
+      }
+
+      updateData({
+        userType: selectedType,
+      });
+
+      router.push("/income");
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        user_type: selectedType,
-      })
-      .eq("id", user.id);
-
-    if (error) {
-      console.log(
-        "Profile Update Error:",
-        error
-      );
-
-      return;
-    }
-
-    updateData({
-      userType: selectedType,
-    });
-
-    router.push("/income");
-  } catch (err) {
-    console.log(err);
-  } finally {
-    setLoading(false);
-  }
-};
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         
-        {/* TOP SECTION */}
         <View style={styles.topSection}>
           <View style={styles.stepperContainer}>
             {[1, 2, 3, 4].map((step) => (
               <View 
                 key={step} 
-                style={[styles.stepLine, { backgroundColor: step === 1 ? '#166534' : '#E2E8F0' }]} 
+                style={[
+                  styles.stepLine, 
+                  { backgroundColor: step === 1 ? '#166534' : '#E2E8F0' }
+                ]} 
               />
             ))}
           </View>
@@ -81,8 +81,8 @@ const handleContinue = async () => {
           </View>
         </View>
 
-        {/* MID SECTION (Selection Cards) */}
         <View style={styles.midSection}>
+          
           <Pressable
             style={({ pressed }) => [
               styles.card, 
@@ -136,7 +136,6 @@ const handleContinue = async () => {
           </Pressable>
         </View>
 
-        {/* BOTTOM SECTION */}
         <View style={styles.bottomSection}>
           <Pressable 
             style={({ pressed }) => [
@@ -148,8 +147,8 @@ const handleContinue = async () => {
             disabled={!selectedType || loading}
           >
             <Text style={styles.buttonText}>
-  {loading ? "Saving..." : "Continue"}
-</Text>
+              {loading ? "Saving..." : "Continue"}
+            </Text>
             <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
           </Pressable>
         </View>
@@ -158,7 +157,6 @@ const handleContinue = async () => {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8FAFC" },
   safeArea: { flex: 1, paddingHorizontal: 30 },

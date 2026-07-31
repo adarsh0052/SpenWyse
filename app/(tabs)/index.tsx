@@ -17,8 +17,6 @@ import { calculateFinanceSnapshot } from '../../services/finance';
 import { supabase } from '../../services/supabase';
 import { checkAndProcessMonthEnd } from '../../services/monthProcessor';
 
-// --- Types & Constants ---
-
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
 interface RecentExpense {
@@ -31,29 +29,44 @@ interface RecentExpense {
 }
 
 interface WeekDay {
-  label: string;
-  dateKey: string;
-  total: number;
+  label: string;      
+  dateKey: string;    
+  total: number;      
 }
 
-// --- Helpers ---
+function getLocalDateKey(date: Date) {
+  const year = date.getFullYear();
+
+  const month = String(
+    date.getMonth() + 1
+  ).padStart(2, '0');
+
+  const day = String(
+    date.getDate()
+  ).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
 
 function buildWeekDays(): WeekDay[] {
   const now = new Date();
-  const dayOfWeek = now.getDay();
+  const dayOfWeek = now.getDay(); 
+  
   const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  
   const monday = new Date(now);
   
   monday.setDate(now.getDate() + diffToMonday);
-  monday.setHours(0, 0, 0, 0);
+  monday.setHours(0, 0, 0, 0); 
 
   const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
     return { 
       label: labels[i], 
-      dateKey: d.toISOString().slice(0, 10), 
+      dateKey: getLocalDateKey(d),
       total: 0 
     };
   });
@@ -65,22 +78,18 @@ function formatYLabel(val: number): string {
   return `₹${val}`;
 }
 
-// --- Main Component ---
-
 export default function Dashboard() {
   const { data } = useOnboarding();
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const insets = useSafeAreaInsets(); 
+  const router = useRouter(); 
   
-  // State
-  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
-  const [profile, setProfile] = useState<any>(null);
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0); 
+  const [profile, setProfile] = useState<any>(null); 
   const [loading, setLoading] = useState(true);
-  const [expenses, setExpenses] = useState<RecentExpense[]>([]);
-  const [weekDays, setWeekDays] = useState<WeekDay[]>(buildWeekDays());
-  const [allocations, setAllocations] = useState<any[]>([]);
+  const [expenses, setExpenses] = useState<RecentExpense[]>([]); 
+  const [weekDays, setWeekDays] = useState<WeekDay[]>(buildWeekDays()); 
+  const [allocations, setAllocations] = useState<any[]>([]); 
 
-  // Derived Data
   const totalAllocated = allocations.reduce((sum, item) => sum + item.amount, 0);
 
   const finance = calculateFinanceSnapshot({
@@ -99,6 +108,14 @@ export default function Dashboard() {
 
   const spentPct = income > 0 ? Math.min((spentTillNow / income) * 100, 100) : 0;
 
+  const getLocalDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+};
+
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good Morning,';
@@ -106,7 +123,6 @@ export default function Dashboard() {
     return 'Good Evening,';
   }, []);
 
-  // Dynamic User Info
   const initials = profile?.full_name
     ? profile.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
     : 'A';
@@ -115,14 +131,12 @@ export default function Dashboard() {
     ? profile.full_name.split(' ')[0] 
     : 'User';
 
-  // Data Fetching
   const fetchProfile = useCallback(async () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) return; 
 
-      // Parallel/Sequential fetching
       const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
@@ -135,19 +149,20 @@ export default function Dashboard() {
         .eq('user_id', user.id);
 
       setProfile(profileData);
-      await checkAndProcessMonthEnd();
+      
+      await checkAndProcessMonthEnd(); 
       setAllocations(allocationsData || []);
 
       const week = buildWeekDays();
-      const weekStart = week[0].dateKey;
-      const weekEnd = week[6].dateKey;
+      const weekStart = week[0].dateKey; 
+      const weekEnd = week[6].dateKey;  
 
       const { data: allWeekData } = await supabase
         .from('expenses')
         .select('*')
         .eq('user_id', user.id)
-        .gte('created_at', `${weekStart}T00:00:00`)
-        .lte('created_at', `${weekEnd}T23:59:59`)
+        .gte('created_at', `${weekStart}T00:00:00`) 
+        .lte('created_at', `${weekEnd}T23:59:59`)   
         .order('created_at', { ascending: false });
 
       const updatedWeek = week.map((day) => {
@@ -155,11 +170,13 @@ export default function Dashboard() {
           .filter((item: any) => item.created_at?.slice(0, 10) === day.dateKey)
           .reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
         return { ...day, total };
+        
       });
 
       setWeekDays(updatedWeek);
 
-      const todayKey = new Date().toISOString().slice(0, 10);
+      const todayKey =
+  getLocalDateKey(new Date());
       const todayIdx = updatedWeek.findIndex((d) => d.dateKey === todayKey);
       if (todayIdx !== -1) setSelectedDayIndex(todayIdx);
 
@@ -168,7 +185,7 @@ export default function Dashboard() {
         cat: item.category,
         price: item.amount.toString(),
         time: 'Recently',
-        icon: 'wallet' as IconName,
+        icon: 'wallet' as IconName, 
         color: '#166534',
       }));
 
@@ -179,6 +196,7 @@ export default function Dashboard() {
       setLoading(false);
     }
   }, []);
+ 
 
   useFocusEffect(
     useCallback(() => {
@@ -190,7 +208,6 @@ export default function Dashboard() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#166534" />
 
-      {/* Dynamic Header with Greeting & Avatar */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={styles.headerInnerLeftAligned}>
           <View style={styles.headerGreetingCol}>
@@ -213,10 +230,8 @@ export default function Dashboard() {
         showsVerticalScrollIndicator={false} 
         contentContainerStyle={styles.scrollContent}
       >
-        {/* HERO CARD WITH PREMIUM TEXTURES */}
         <View style={styles.heroCardWrapper}>
           <LinearGradient colors={['#166534', '#064E3B']} style={styles.heroCard}>
-            {/* Background Texture Circles */}
             <View style={styles.textureCircle1} />
             <View style={styles.textureCircle2} />
             
@@ -252,7 +267,6 @@ export default function Dashboard() {
           </LinearGradient>
         </View>
 
-        {/* WEEKLY CHART */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Weekly Spending</Text>
         </View>
@@ -268,8 +282,8 @@ export default function Dashboard() {
           );
 
           const maxTotal = Math.max(...weekDays.map((d) => d.total), 1);
-          const niceStep = Math.ceil((maxTotal / 2) / 100) * 100;
-          const yMax = niceStep * 2;
+          const niceStep = Math.ceil((maxTotal / 2) / 100) * 100; 
+          const yMax = niceStep * 2; 
 
           return (
             <View style={styles.chartContainer}>
@@ -337,7 +351,6 @@ export default function Dashboard() {
           );
         })()}
 
-        {/* RECENT ACTIVITY */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent Activity</Text>
         </View>
@@ -370,7 +383,6 @@ export default function Dashboard() {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   
