@@ -14,10 +14,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect, useNavigation, Tabs } from 'expo-router';
 import Animated, { FadeInUp, FadeIn } from 'react-native-reanimated';
 import { supabase } from '../../services/supabase';
-
-const { width } = Dimensions.get('window');
-
-const INITIAL_FLEX_POOL = 8200;
+import { calculateFinanceSnapshot } from '../../services/finance';
+import { triggerDailyLimitExceeded, triggerBudgetWarning } from '../../services/notifications';
 
 const CATEGORIES = [
   { id: '1', name: 'Food', icon: 'fast-food', color: '#10B981' },
@@ -39,10 +37,51 @@ export default function AddExpenseScreen() {
   const [isRecurring, setIsRecurring] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const [profile, setProfile] = useState<any>(null);
+  const [allocations, setAllocations] = useState<any[]>([]);
+  const [loadingPool, setLoadingPool] = useState(true);
+
+  const totalAllocated = allocations.reduce((sum, item) => sum + item.amount, 0);
+  const finance = calculateFinanceSnapshot({
+    income: profile?.monthly_income || 0,
+    spent: profile?.current_month_spent || 0,
+    commitments: totalAllocated,
+  });
+
+  const flexiblePool = finance.flexiblePool;
+  const dailyLimit = finance.dailySpendLimit;
+
+  const fetchPoolData = useCallback(async () => {
+    try {
+      setLoadingPool(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      const { data: allocationsData } = await supabase
+        .from('allocations')
+        .select('*')
+        .eq('user_id', user.id);
+
+      setProfile(profileData);
+      setAllocations(allocationsData || []);
+    } catch (err) {
+      console.error('Error fetching pool data in add.tsx:', err);
+    } finally {
+      setLoadingPool(false);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       setScreenState('typing');
       setAmount('0');
+      fetchPoolData();
 
       const parent = navigation.getParent();
       parent?.setOptions({
@@ -54,11 +93,11 @@ export default function AddExpenseScreen() {
           tabBarStyle: { display: 'flex' },
         });
       };
-    }, [navigation])
+    }, [navigation, fetchPoolData])
   );
 
   const numericAmount = parseInt(amount) || 0;
-  const isOverBudget = numericAmount > INITIAL_FLEX_POOL;
+  const isOverBudget = profile ? numericAmount > flexiblePool : false;
   
   const getCategoryName = (id: string) => {
     return CATEGORIES.find(cat => cat.id === id)?.name || 'Other';
@@ -113,6 +152,45 @@ export default function AddExpenseScreen() {
         console.log(updateError);
         return; 
       }
+
+      // Trigger push notifications in the background
+      (async () => {
+        try {
+          // 1. Check for Monthly Budget Warnings (crossing 85% of monthly income)
+          const monthlyIncome = profile.monthly_income || 0;
+          const threshold = monthlyIncome * 0.85;
+          if (updatedSpent >= threshold && profile.current_month_spent < threshold) {
+            await triggerBudgetWarning(updatedSpent, monthlyIncome);
+          }
+
+          // 2. Check for Daily Limit Exceeded
+          const today = new Date();
+          const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0).toISOString();
+          const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).toISOString();
+
+          const { data: todayExpenses } = await supabase
+            .from('expenses')
+            .select('amount, category')
+            .eq('user_id', user.id)
+            .gte('created_at', todayStart)
+            .lte('created_at', todayEnd);
+
+          const categoryName = getCategoryName(selectedCat);
+          const hasCurrent = (todayExpenses || []).some(
+            item => item.amount === numericAmount && item.category === categoryName
+          );
+          let spentToday = (todayExpenses || []).reduce((sum, item) => sum + (item.amount || 0), 0);
+          if (!hasCurrent) {
+            spentToday += numericAmount;
+          }
+
+          if (spentToday > dailyLimit) {
+            await triggerDailyLimitExceeded(spentToday, dailyLimit);
+          }
+        } catch (notifErr) {
+          console.log('Error triggering push notifications:', notifErr);
+        }
+      })();
 
       setScreenState('success');
     } catch (err) {

@@ -76,13 +76,18 @@ export const checkAndProcessMonthEnd =
     const snapshotYear =
       profile.last_processed_year;
 
-    // expenses
+    // Optimized: Query only the target month's expenses instead of fetching all historical data
+    const startDate = new Date(snapshotYear, snapshotMonth - 1, 1).toISOString();
+    const endDate = new Date(snapshotYear, snapshotMonth, 0, 23, 59, 59, 999).toISOString();
+
     const {
       data: expenses,
     } = await supabase
       .from('expenses')
       .select('*')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .gte('created_at', startDate)
+      .lte('created_at', endDate);
 
     // allocations
     const {

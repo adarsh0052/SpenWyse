@@ -16,6 +16,7 @@ import { useOnboarding } from '../../context/OnboardingContext';
 import { calculateFinanceSnapshot } from '../../services/finance';
 import { supabase } from '../../services/supabase';
 import { checkAndProcessMonthEnd } from '../../services/monthProcessor';
+import { scheduleDailyReminder } from '../../services/notifications';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -201,6 +202,7 @@ export default function Dashboard() {
   useFocusEffect(
     useCallback(() => {
       fetchProfile();
+      scheduleDailyReminder(20, 0); // Schedule daily at 8:00 PM
     }, [fetchProfile])
   );
 
